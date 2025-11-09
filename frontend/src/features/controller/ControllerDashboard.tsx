@@ -1,0 +1,131 @@
+import { useEffect, useMemo, useState } from 'react'
+import { subscribeToSimulation } from '../../services/simulationService'
+import { getSimulationFrame } from '../../services/dataService'
+import type { FatigueSnapshot } from '../../types'
+import { useSessionStore } from '../../store/useSessionStore'
+import { RealtimeCapturePanel } from './RealtimeCapturePanel'
+
+const statusStyles: Record<FatigueSnapshot['status'], string> = {
+  Normal: 'bg-pearl-success/20 text-pearl-success border border-pearl-success/40',
+  Monitor: 'bg-pearl-warning/20 text-pearl-warning border border-pearl-warning/40',
+  'High Fatigue': 'bg-pearl-danger/20 text-pearl-danger border border-pearl-danger/40',
+}
+
+export function ControllerDashboard() {
+  const controller = useSessionStore((state) => state.controller)
+  const [snapshot, setSnapshot] = useState<FatigueSnapshot | null>(null)
+
+  useEffect(() => {
+    if (!controller) return
+
+    const initial = getSimulationFrame(0).find((frame) => frame.controllerId === controller.id) ?? null
+    setSnapshot(initial)
+
+    return subscribeToSimulation((frames) => {
+      const match = frames.find((frame) => frame.controllerId === controller.id)
+      if (match) {
+        setSnapshot(match)
+      }
+    })
+  }, [controller])
+
+  const baselineFactors = useMemo(() => controller?.baselineFactors, [controller])
+
+  if (!controller) {
+    return null
+  }
+
+  return (
+    <div className="space-y-8">
+      <section className="grid gap-6 md:grid-cols-2">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+          <h2 className="text-lg font-semibold text-slate-200">Current Fatigue Indicator</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            PEARL continuously monitors your biometric and operational cues to provide a calming reminder only to you.
+          </p>
+          {snapshot ? (
+            <div className="mt-6 flex flex-col gap-4">
+              <div className={`w-fit rounded-full px-4 py-1 text-sm font-semibold ${statusStyles[snapshot.status]}`}>
+                {snapshot.status === 'Normal' ? '🟢 Normal' : snapshot.status === 'Monitor' ? '🟡 Monitor' : '🔴 High Fatigue'}
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Personal readiness</p>
+                <p className="mt-2 text-4xl font-semibold text-slate-100">{snapshot.readinessLevel.toFixed(2)}</p>
+                <p className="mt-2 text-sm text-slate-400">Your readiness is recalibrated against the morning baseline.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {snapshot.factors.map((factor) => (
+                  <div key={factor.label} className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">{factor.label}</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-100">{factor.value}</p>
+                    <p className="text-xs text-slate-500">
+                      Trend:{' '}
+                      {factor.trend === 'up' ? '↑' : factor.trend === 'down' ? '↓' : '→'} {factor.trend ?? 'steady'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {snapshot.recommendation ? (
+                <p className="rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-3 text-sm text-slate-300">
+                  {snapshot.recommendation}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-8 text-sm text-slate-400">
+              Awaiting first capture from the Edge AI module…
+            </div>
+          )}
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+          <h2 className="text-lg font-semibold text-slate-200">Baseline snapshot</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Quick reminder of your refreshed baseline after the pre-shift readiness sequence.
+          </p>
+          <div className="mt-6 space-y-5">
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Baseline readiness</p>
+              <p className="mt-2 text-4xl font-semibold text-slate-100">{controller.baselineReadiness.toFixed(2)}</p>
+            </div>
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
+                <dt className="text-xs uppercase tracking-wide text-slate-500">Blink rate</dt>
+                <dd className="mt-2 text-lg font-semibold text-slate-100">{baselineFactors?.blinkRate ?? 0} / min</dd>
+              </div>
+              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
+                <dt className="text-xs uppercase tracking-wide text-slate-500">Speech rate</dt>
+                <dd className="mt-2 text-lg font-semibold text-slate-100">{baselineFactors?.speechRate ?? 0} wpm</dd>
+              </div>
+              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
+                <dt className="text-xs uppercase tracking-wide text-slate-500">Response delay</dt>
+                <dd className="mt-2 text-lg font-semibold text-slate-100">{baselineFactors?.responseDelay ?? 0}s</dd>
+              </div>
+              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
+                <dt className="text-xs uppercase tracking-wide text-slate-500">Tone stability</dt>
+                <dd className="mt-2 text-lg font-semibold text-slate-100">
+                  {(baselineFactors?.toneStability ?? 0).toFixed(2)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <RealtimeCapturePanel />
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+        <h3 className="text-lg font-semibold text-slate-200">Shift focus reminder</h3>
+        <p className="mt-3 text-sm text-slate-400">
+          During the shift, PEARL keeps the fatigue indicator subtle. Your dashboard will always show the latest color
+          cue and supportive reminders while keeping all numerical metrics private to you.
+        </p>
+        <ul className="mt-4 list-disc space-y-2 pl-6 text-sm text-slate-400">
+          <li>🟢 Normal — stay the course, hydration reminders appear every 50 minutes.</li>
+          <li>🟡 Monitor — take two mindful breaths, and consider a standing stretch.</li>
+          <li>🔴 High Fatigue — your supervisor receives a gentle advisory to coordinate a micro-break.</li>
+        </ul>
+      </section>
+    </div>
+  )
+}
+
