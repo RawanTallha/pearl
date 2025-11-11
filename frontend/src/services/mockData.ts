@@ -1,4 +1,11 @@
-import type { ControllerProfile, FatigueSnapshot, ShiftSummary, SupervisorAction, SupervisorProfile } from '../types'
+import type {
+  ControllerProfile,
+  FatigueSnapshot,
+  SectorRoster,
+  ShiftSummary,
+  SupervisorAction,
+  SupervisorProfile,
+} from '../types'
 
 export const mockControllers: ControllerProfile[] = [
   {
@@ -8,6 +15,10 @@ export const mockControllers: ControllerProfile[] = [
     yearOfBirth: 1993,
     gender: 'Female',
     healthNotes: 'No chronic conditions. Sensitive to caffeine.',
+    sectorId: 'EAST',
+    sectorName: 'East Sector',
+    shiftGroup: 'East Sector – Morning Rotation',
+    rosterRole: 'primary',
     baselineReadiness: 0.91,
     baselineFactors: {
       blinkRate: 16,
@@ -23,6 +34,10 @@ export const mockControllers: ControllerProfile[] = [
     yearOfBirth: 1996,
     gender: 'Female',
     healthNotes: 'Seasonal allergies. Uses blue-light glasses.',
+    sectorId: 'CENTRAL',
+    sectorName: 'Central Sector',
+    shiftGroup: 'Central Sector – Midday Watch',
+    rosterRole: 'primary',
     baselineReadiness: 0.88,
     baselineFactors: {
       blinkRate: 18,
@@ -38,12 +53,149 @@ export const mockControllers: ControllerProfile[] = [
     yearOfBirth: 1992,
     gender: 'Female',
     healthNotes: 'Prefers standing desk setup.',
+    sectorId: 'WEST',
+    sectorName: 'West Sector',
+    shiftGroup: 'West Sector – Evening Rotation',
+    rosterRole: 'primary',
     baselineReadiness: 0.95,
     baselineFactors: {
       blinkRate: 14,
       speechRate: 115,
       responseDelay: 0.8,
       toneStability: 0.97,
+    },
+  },
+  {
+    id: 'C_Noura_004',
+    name: 'Noura',
+    experienceYears: 6,
+    yearOfBirth: 1994,
+    gender: 'Female',
+    healthNotes: 'Certified for East Sector. Completed backup refresher last month.',
+    sectorId: 'EAST',
+    sectorName: 'East Sector',
+    shiftGroup: 'East Sector – Morning Rotation',
+    rosterRole: 'backup',
+    baselineReadiness: 0.89,
+    baselineFactors: {
+      blinkRate: 17,
+      speechRate: 124,
+      responseDelay: 0.95,
+      toneStability: 0.9,
+    },
+  },
+  {
+    id: 'C_Leena_005',
+    name: 'Leena',
+    experienceYears: 8,
+    yearOfBirth: 1991,
+    gender: 'Female',
+    healthNotes: 'Former Central Sector lead, serving in reserve role.',
+    sectorId: 'CENTRAL',
+    sectorName: 'Central Sector',
+    shiftGroup: 'Central Sector – Midday Watch',
+    rosterRole: 'backup',
+    baselineReadiness: 0.9,
+    baselineFactors: {
+      blinkRate: 16,
+      speechRate: 122,
+      responseDelay: 1.0,
+      toneStability: 0.91,
+    },
+  },
+  {
+    id: 'C_Maha_006',
+    name: 'Maha',
+    experienceYears: 4,
+    yearOfBirth: 1998,
+    gender: 'Female',
+    healthNotes: 'Completing evening rotation standby certification.',
+    sectorId: 'WEST',
+    sectorName: 'West Sector',
+    shiftGroup: 'West Sector – Evening Rotation',
+    rosterRole: 'backup',
+    baselineReadiness: 0.87,
+    baselineFactors: {
+      blinkRate: 18,
+      speechRate: 119,
+      responseDelay: 1.05,
+      toneStability: 0.88,
+    },
+  },
+  {
+    id: 'C_Fahad_007',
+    name: 'Fahad',
+    experienceYears: 10,
+    yearOfBirth: 1989,
+    gender: 'Male',
+    healthNotes: 'North Sector lead controller. Completed winter ops certification.',
+    sectorId: 'NORTH',
+    sectorName: 'North Sector',
+    shiftGroup: 'North Sector – Night Surveillance',
+    rosterRole: 'primary',
+    baselineReadiness: 0.93,
+    baselineFactors: {
+      blinkRate: 15,
+      speechRate: 118,
+      responseDelay: 0.88,
+      toneStability: 0.95,
+    },
+  },
+  {
+    id: 'C_Saud_008',
+    name: 'Saud',
+    experienceYears: 6,
+    yearOfBirth: 1994,
+    gender: 'Male',
+    healthNotes: 'North Sector backup. Specializes in long-range radar sequencing.',
+    sectorId: 'NORTH',
+    sectorName: 'North Sector',
+    shiftGroup: 'North Sector – Night Surveillance',
+    rosterRole: 'backup',
+    baselineReadiness: 0.9,
+    baselineFactors: {
+      blinkRate: 17,
+      speechRate: 121,
+      responseDelay: 0.96,
+      toneStability: 0.9,
+    },
+  },
+  {
+    id: 'C_Khalid_009',
+    name: 'Khalid',
+    experienceYears: 8,
+    yearOfBirth: 1991,
+    gender: 'Male',
+    healthNotes: 'South Sector primary; proficient in mountainous approach procedures.',
+    sectorId: 'SOUTH',
+    sectorName: 'South Sector',
+    shiftGroup: 'South Sector – Afternoon Patrol',
+    rosterRole: 'primary',
+    baselineReadiness: 0.92,
+    baselineFactors: {
+      blinkRate: 16,
+      speechRate: 123,
+      responseDelay: 0.93,
+      toneStability: 0.92,
+    },
+  },
+  {
+    id: 'C_Mohammed_010',
+    name: 'Mohammed',
+    experienceYears: 5,
+    yearOfBirth: 1997,
+    gender: 'Male',
+    healthNotes: 'South Sector backup. Recently rotated from tower operations.',
+    sectorId: 'SOUTH',
+    sectorName: 'South Sector',
+    shiftGroup: 'South Sector – Afternoon Patrol',
+    rosterRole: 'backup',
+    baselineReadiness: 0.88,
+    baselineFactors: {
+      blinkRate: 18,
+      speechRate: 120,
+      responseDelay: 1.02,
+      toneStability: 0.89,
     },
   },
 ]
@@ -58,6 +210,7 @@ export const simulationFrames: FatigueSnapshot[][] = [
   [
     {
       controllerId: 'C_Lama_001',
+      sectorId: 'EAST',
       timestamp: '2025-11-09T10:30:00Z',
       score: 0.42,
       readinessLevel: 0.9,
@@ -71,6 +224,7 @@ export const simulationFrames: FatigueSnapshot[][] = [
     },
     {
       controllerId: 'C_Rawan_002',
+      sectorId: 'CENTRAL',
       timestamp: '2025-11-09T10:30:00Z',
       score: 0.68,
       readinessLevel: 0.74,
@@ -84,6 +238,7 @@ export const simulationFrames: FatigueSnapshot[][] = [
     },
     {
       controllerId: 'C_Rahaf_003',
+      sectorId: 'WEST',
       timestamp: '2025-11-09T10:30:00Z',
       score: 0.28,
       readinessLevel: 0.93,
@@ -95,10 +250,39 @@ export const simulationFrames: FatigueSnapshot[][] = [
       ],
       recommendation: 'Maintain current rotation',
     },
+    {
+      controllerId: 'C_Fahad_007',
+      sectorId: 'NORTH',
+      timestamp: '2025-11-09T10:30:00Z',
+      score: 0.35,
+      readinessLevel: 0.92,
+      status: 'Normal',
+      factors: [
+        { label: 'Radar focus', value: 'Stable', trend: 'steady' },
+        { label: 'Response delay', value: '0.85s', trend: 'steady' },
+        { label: 'Tone stability', value: '0.96', trend: 'steady' },
+      ],
+      recommendation: 'Maintain high-altitude scan cadence',
+    },
+    {
+      controllerId: 'C_Khalid_009',
+      sectorId: 'SOUTH',
+      timestamp: '2025-11-09T10:30:00Z',
+      score: 0.44,
+      readinessLevel: 0.88,
+      status: 'Monitor',
+      factors: [
+        { label: 'Blink rate', value: '19/min', trend: 'up' },
+        { label: 'Terrain advisory', value: 'Normal', trend: 'steady' },
+        { label: 'Speech rate', value: '129 wpm', trend: 'up' },
+      ],
+      recommendation: 'Schedule micro-stretch after next handoff',
+    },
   ],
   [
     {
       controllerId: 'C_Lama_001',
+      sectorId: 'EAST',
       timestamp: '2025-11-09T10:35:00Z',
       score: 0.46,
       readinessLevel: 0.88,
@@ -112,6 +296,7 @@ export const simulationFrames: FatigueSnapshot[][] = [
     },
     {
       controllerId: 'C_Rawan_002',
+      sectorId: 'CENTRAL',
       timestamp: '2025-11-09T10:35:00Z',
       score: 0.73,
       readinessLevel: 0.7,
@@ -125,6 +310,7 @@ export const simulationFrames: FatigueSnapshot[][] = [
     },
     {
       controllerId: 'C_Rahaf_003',
+      sectorId: 'WEST',
       timestamp: '2025-11-09T10:35:00Z',
       score: 0.32,
       readinessLevel: 0.92,
@@ -136,10 +322,39 @@ export const simulationFrames: FatigueSnapshot[][] = [
       ],
       recommendation: 'Ready to assist',
     },
+    {
+      controllerId: 'C_Fahad_007',
+      sectorId: 'NORTH',
+      timestamp: '2025-11-09T10:35:00Z',
+      score: 0.37,
+      readinessLevel: 0.91,
+      status: 'Normal',
+      factors: [
+        { label: 'Radar focus', value: 'Stable', trend: 'steady' },
+        { label: 'Speech rate', value: '120 wpm', trend: 'steady' },
+        { label: 'Tone stability', value: '0.95', trend: 'steady' },
+      ],
+      recommendation: 'Maintain northern corridor spacing',
+    },
+    {
+      controllerId: 'C_Khalid_009',
+      sectorId: 'SOUTH',
+      timestamp: '2025-11-09T10:35:00Z',
+      score: 0.49,
+      readinessLevel: 0.86,
+      status: 'Monitor',
+      factors: [
+        { label: 'Blink rate', value: '20/min', trend: 'up' },
+        { label: 'Response delay', value: '0.96s', trend: 'up' },
+        { label: 'Tone stability', value: '0.90', trend: 'down' },
+      ],
+      recommendation: 'Coordinate with backup for potential handover',
+    },
   ],
   [
     {
       controllerId: 'C_Lama_001',
+      sectorId: 'EAST',
       timestamp: '2025-11-09T10:40:00Z',
       score: 0.39,
       readinessLevel: 0.9,
@@ -153,6 +368,7 @@ export const simulationFrames: FatigueSnapshot[][] = [
     },
     {
       controllerId: 'C_Rawan_002',
+      sectorId: 'CENTRAL',
       timestamp: '2025-11-09T10:40:00Z',
       score: 0.65,
       readinessLevel: 0.77,
@@ -166,6 +382,7 @@ export const simulationFrames: FatigueSnapshot[][] = [
     },
     {
       controllerId: 'C_Rahaf_003',
+      sectorId: 'WEST',
       timestamp: '2025-11-09T10:40:00Z',
       score: 0.29,
       readinessLevel: 0.94,
@@ -176,6 +393,34 @@ export const simulationFrames: FatigueSnapshot[][] = [
         { label: 'Speech rate', value: '116 wpm', trend: 'steady' },
       ],
       recommendation: 'Standing by',
+    },
+    {
+      controllerId: 'C_Fahad_007',
+      sectorId: 'NORTH',
+      timestamp: '2025-11-09T10:40:00Z',
+      score: 0.34,
+      readinessLevel: 0.93,
+      status: 'Normal',
+      factors: [
+        { label: 'Radar focus', value: 'Stable', trend: 'steady' },
+        { label: 'Response delay', value: '0.84s', trend: 'down' },
+        { label: 'Tone stability', value: '0.97', trend: 'up' },
+      ],
+      recommendation: 'Continue monitoring northern traffic flow',
+    },
+    {
+      controllerId: 'C_Khalid_009',
+      sectorId: 'SOUTH',
+      timestamp: '2025-11-09T10:40:00Z',
+      score: 0.41,
+      readinessLevel: 0.89,
+      status: 'Monitor',
+      factors: [
+        { label: 'Blink rate', value: '18/min', trend: 'down' },
+        { label: 'Speech rate', value: '125 wpm', trend: 'down' },
+        { label: 'Tone stability', value: '0.92', trend: 'up' },
+      ],
+      recommendation: 'Log terrain briefing after current sequence',
     },
   ],
 ]
@@ -204,6 +449,22 @@ export const mockShiftSummaries: ShiftSummary[] = [
     peakFatigue: 0.45,
     postShiftDelta: 0.14,
   },
+  {
+    controllerId: 'C_Fahad_007',
+    shiftDate: '2025-11-08',
+    preShiftReadiness: 0.95,
+    peakFatigue: 0.52,
+    postShiftDelta: 0.18,
+    notes: 'Handled night surge with military exercises. Backup notified but not deployed.',
+  },
+  {
+    controllerId: 'C_Khalid_009',
+    shiftDate: '2025-11-08',
+    preShiftReadiness: 0.9,
+    peakFatigue: 0.6,
+    postShiftDelta: 0.2,
+    notes: 'Extended mountain approach sequence. Recommended 10-minute stretch protocol.',
+  },
 ]
 
 export const mockSupervisorActions: SupervisorAction[] = [
@@ -222,4 +483,71 @@ export const mockSupervisorActions: SupervisorAction[] = [
     createdAt: '2025-11-09T10:33:00Z',
   },
 ]
+
+type SectorRosterConfig = {
+  id: string
+  name: string
+  shiftGroup: string
+  description: string
+  primaryIds: string[]
+  backupIds: string[]
+}
+
+const sectorConfigs: SectorRosterConfig[] = [
+  {
+    id: 'EAST',
+    name: 'East Sector',
+    shiftGroup: 'East Sector – Morning Rotation',
+    description: 'Handles arrivals from the coastal corridor and runway 05 sequencing.',
+    primaryIds: ['C_Lama_001'],
+    backupIds: ['C_Noura_004'],
+  },
+  {
+    id: 'CENTRAL',
+    name: 'Central Sector',
+    shiftGroup: 'Central Sector – Midday Watch',
+    description: 'Coordinates en-route traffic over the city center and handoffs to approach.',
+    primaryIds: ['C_Rawan_002'],
+    backupIds: ['C_Leena_005'],
+  },
+  {
+    id: 'WEST',
+    name: 'West Sector',
+    shiftGroup: 'West Sector – Evening Rotation',
+    description: 'Supervises departures on runway 30 and westbound airways.',
+    primaryIds: ['C_Rahaf_003'],
+    backupIds: ['C_Maha_006'],
+  },
+  {
+    id: 'NORTH',
+    name: 'North Sector',
+    shiftGroup: 'North Sector – Night Surveillance',
+    description: 'Monitors high-altitude en-route corridors and northern military training areas.',
+    primaryIds: ['C_Fahad_007'],
+    backupIds: ['C_Saud_008'],
+  },
+  {
+    id: 'SOUTH',
+    name: 'South Sector',
+    shiftGroup: 'South Sector – Afternoon Patrol',
+    description: 'Covers mountainous approaches, search-and-rescue corridors, and southern exit routes.',
+    primaryIds: ['C_Khalid_009'],
+    backupIds: ['C_Mohammed_010'],
+  },
+]
+
+const controllerById = new Map(mockControllers.map((controller) => [controller.id, controller]))
+
+export const mockSectors: SectorRoster[] = sectorConfigs.map((sector) => ({
+  id: sector.id,
+  name: sector.name,
+  shiftGroup: sector.shiftGroup,
+  description: sector.description,
+  primary: sector.primaryIds
+    .map((id) => controllerById.get(id))
+    .filter((controller): controller is ControllerProfile => Boolean(controller)),
+  backup: sector.backupIds
+    .map((id) => controllerById.get(id))
+    .filter((controller): controller is ControllerProfile => Boolean(controller)),
+}))
 

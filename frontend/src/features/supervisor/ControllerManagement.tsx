@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchControllers } from '../../services/dataService'
-import type { ControllerProfile } from '../../types'
+import { fetchControllers, fetchSectorCatalog } from '../../services/dataService'
+import type { ControllerProfile, RosterRole, SectorSummary } from '../../types'
 
 interface DraftController {
   name: string
@@ -11,6 +11,8 @@ interface DraftController {
   yearOfBirth: number
   gender: ControllerProfile['gender']
   healthNotes: string
+  sectorId: string
+  rosterRole: RosterRole
 }
 
 const initialDraft: DraftController = {
@@ -20,12 +22,18 @@ const initialDraft: DraftController = {
   yearOfBirth: 1998,
   gender: 'Female',
   healthNotes: '',
+  sectorId: '',
+  rosterRole: 'primary',
 }
 
 export function ControllerManagement() {
   const { data: fetchedControllers } = useQuery({
     queryKey: ['controllers'],
     queryFn: fetchControllers,
+  })
+  const { data: sectorCatalog } = useQuery({
+    queryKey: ['sector-catalog'],
+    queryFn: fetchSectorCatalog,
   })
 
   const [controllers, setControllers] = useState<ControllerProfile[]>([])
@@ -38,11 +46,20 @@ export function ControllerManagement() {
     }
   }, [fetchedControllers])
 
+  useEffect(() => {
+    if (sectorCatalog && sectorCatalog.length > 0 && !draft.sectorId) {
+      setDraft((prev) => ({ ...prev, sectorId: sectorCatalog[0].id }))
+    }
+  }, [sectorCatalog, draft.sectorId])
+
   const controllerCount = controllers.length
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!draft.name || !draft.id) return
+    if (!draft.name || !draft.id || !draft.sectorId) return
+
+    const sectorDetails: SectorSummary | undefined = sectorCatalog?.find((sector) => sector.id === draft.sectorId)
+    if (!sectorDetails) return
 
     const newController: ControllerProfile = {
       id: draft.id,
@@ -51,6 +68,10 @@ export function ControllerManagement() {
       yearOfBirth: draft.yearOfBirth,
       gender: draft.gender,
       healthNotes: draft.healthNotes,
+      sectorId: sectorDetails.id,
+      sectorName: sectorDetails.name,
+      shiftGroup: sectorDetails.shiftGroup,
+      rosterRole: draft.rosterRole,
       baselineReadiness: 0.9,
       baselineFactors: {
         blinkRate: 17,
@@ -73,6 +94,8 @@ export function ControllerManagement() {
         experienceYears: controller.experienceYears,
         age: new Date().getFullYear() - controller.yearOfBirth,
         note: controller.healthNotes ?? '—',
+          sector: controller.sectorName,
+          rosterRole: controller.rosterRole,
       })),
     [controllers],
   )
@@ -116,6 +139,7 @@ export function ControllerManagement() {
             <thead className="bg-slate-900/70 text-slate-400">
               <tr>
                 <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Controller</th>
+                <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Sector</th>
                 <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Experience</th>
                 <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Age</th>
                 <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Health notes</th>
@@ -128,6 +152,10 @@ export function ControllerManagement() {
                   <td className="px-5 py-4">
                     <p className="font-semibold text-slate-100">{entry.name}</p>
                     <p className="text-xs text-slate-500">{entry.id}</p>
+                  </td>
+                  <td className="px-5 py-4 text-sm text-slate-300">
+                    <p>{entry.sector}</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">{entry.rosterRole}</p>
                   </td>
                   <td className="px-5 py-4 text-sm text-slate-300">{entry.experienceYears} years</td>
                   <td className="px-5 py-4 text-sm text-slate-300">{entry.age}</td>
@@ -204,6 +232,31 @@ export function ControllerManagement() {
                 rows={3}
                 className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
               />
+            </label>
+            <label className="flex flex-col gap-2 text-xs uppercase tracking-wide text-slate-500">
+              Sector assignment
+              <select
+                value={draft.sectorId}
+                onChange={(event) => setDraft((prev) => ({ ...prev, sectorId: event.target.value }))}
+                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+              >
+                {sectorCatalog?.map((sector) => (
+                  <option key={sector.id} value={sector.id}>
+                    {sector.name} — {sector.shiftGroup}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-2 text-xs uppercase tracking-wide text-slate-500">
+              Roster role
+              <select
+                value={draft.rosterRole}
+                onChange={(event) => setDraft((prev) => ({ ...prev, rosterRole: event.target.value as RosterRole }))}
+                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+              >
+                <option value="primary">Primary</option>
+                <option value="backup">Backup</option>
+              </select>
             </label>
             <div className="md:col-span-2 flex justify-end gap-3">
               <button

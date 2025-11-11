@@ -3,15 +3,9 @@ import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { nanoid } from 'nanoid'
-import {
-  controllers,
-  supervisor,
-  simulationFrames,
-  shiftSummaries,
-  supervisorActions as seedActions,
-} from './data/mockData.js'
+import { controllers, sectors, supervisor, shiftSummaries, supervisorActions as seedActions } from './data/mockData.js'
 import { advanceFrame, getCurrentFrame, resetSimulation } from './services/simulation.js'
-import type { ControllerProfile, SupervisorAction } from './types.js'
+import type { ControllerProfile, SectorRoster, SupervisorAction } from './types.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -29,6 +23,8 @@ app.use(
 app.use(express.json())
 
 let actions: SupervisorAction[] = [...seedActions]
+const sectorMap = new Map<string, SectorRoster>(sectors.map((sector) => [sector.id, sector]))
+const controllerMap = new Map<string, ControllerProfile>(controllers.map((controller) => [controller.id, controller]))
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000
 const simulationInterval = Number(process.env.SIM_INTERVAL_MS ?? 5000)
@@ -46,7 +42,7 @@ app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     controllers: controllers.length,
-    frames: simulationFrames.length,
+    sectors: sectors.length,
     timestamp: new Date().toISOString(),
   })
 })
@@ -60,6 +56,7 @@ app.post('/auth/controller', (req, res) => {
   if (!profile) {
     return res.status(404).json({ error: 'Controller not found' })
   }
+  controllerMap.set(profile.id, profile)
   return res.json(profile)
 })
 
@@ -86,14 +83,46 @@ app.get('/controllers/:id', (req, res) => {
   res.json(controller)
 })
 
+app.get('/controllers/:id/sector', (req, res) => {
+  const controller = controllerMap.get(req.params.id)
+  if (!controller) {
+    return res.status(404).json({ error: 'Controller not found' })
+  }
+  const sector = sectorMap.get(controller.sectorId)
+  if (!sector) {
+    return res.status(404).json({ error: 'Sector not found' })
+  }
+  res.json(sector)
+})
+
+app.get('/controllers/:id/backup', (req, res) => {
+  const controller = controllerMap.get(req.params.id)
+  if (!controller) {
+    return res.status(404).json({ error: 'Controller not found' })
+  }
+  const sector = sectorMap.get(controller.sectorId)
+  if (!sector) {
+    return res.status(404).json({ error: 'Sector not found' })
+  }
+  const backup = sector.backup.find((candidate) => candidate.id !== controller.id)
+  if (!backup) {
+    return res.status(404).json({ error: 'No backup assigned' })
+  }
+  res.json(backup)
+})
+
 app.post('/controllers', (req, res) => {
   const payload = req.body as Partial<ControllerProfile>
-  if (!payload.id || !payload.name) {
-    return res.status(400).json({ error: 'id and name are required' })
+  if (!payload.id || !payload.name || !payload.sectorId) {
+    return res.status(400).json({ error: 'id, name, and sectorId are required' })
   }
   const existing = controllers.find((controller) => controller.id === payload.id)
   if (existing) {
     return res.status(409).json({ error: 'Controller already exists' })
+  }
+  const sector = sectorMap.get(payload.sectorId)
+  if (!sector) {
+    return res.status(400).json({ error: 'Sector not found' })
   }
   const newController: ControllerProfile = {
     id: payload.id,
@@ -102,6 +131,10 @@ app.post('/controllers', (req, res) => {
     yearOfBirth: payload.yearOfBirth ?? 1995,
     gender: payload.gender ?? 'Other',
     active: true,
+    sectorId: sector.id,
+    sectorName: sector.name,
+    shiftGroup: sector.shiftGroup,
+    rosterRole: payload.rosterRole ?? 'primary',
     baselineReadiness: 0.9,
     baselineFactors: {
       blinkRate: 17,
@@ -114,6 +147,12 @@ app.post('/controllers', (req, res) => {
     newController.healthNotes = payload.healthNotes
   }
   controllers.push(newController)
+  controllerMap.set(newController.id, newController)
+  if (newController.rosterRole === 'primary') {
+    sector.primary.push(newController)
+  } else {
+    sector.backup.push(newController)
+  }
   res.status(201).json(newController)
 })
 
@@ -123,6 +162,18 @@ app.get('/dashboard/live', (_req, res) => {
     timestamp: new Date().toISOString(),
     controllers: frame,
   })
+})
+
+app.get('/sectors', (_req, res) => {
+  res.json(sectors)
+})
+
+app.get('/sectors/:id', (req, res) => {
+  const sector = sectorMap.get(req.params.id)
+  if (!sector) {
+    return res.status(404).json({ error: 'Sector not found' })
+  }
+  res.json(sector)
 })
 
 app.get('/analytics/monthly', (_req, res) => {

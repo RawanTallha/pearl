@@ -2,6 +2,8 @@ export type UserRole = 'controller' | 'supervisor'
 
 export type FatigueStatus = 'Normal' | 'Monitor' | 'High Fatigue'
 
+export type RosterRole = 'primary' | 'backup'
+
 export interface ControllerProfile {
   id: string
   name: string
@@ -9,6 +11,10 @@ export interface ControllerProfile {
   yearOfBirth: number
   gender: 'Female' | 'Male' | 'Other'
   healthNotes?: string
+  sectorId: string
+  sectorName: string
+  shiftGroup: string
+  rosterRole: RosterRole
   baselineReadiness: number
   baselineFactors: {
     blinkRate: number
@@ -32,6 +38,7 @@ export interface FatigueFactor {
 
 export interface FatigueSnapshot {
   controllerId: string
+  sectorId?: string
   timestamp: string
   score: number
   status: FatigueStatus
@@ -55,5 +62,20 @@ export interface SupervisorAction {
   action: 'suggest_break' | 'delay' | 'monitor'
   message: string
   createdAt: string
+}
+
+export interface SectorRoster {
+  id: string
+  name: string
+  shiftGroup: string
+  description?: string
+  primary: ControllerProfile[]
+  backup: ControllerProfile[]
+}
+
+export interface SectorSummary {
+  id: string
+  name: string
+  shiftGroup: string
 }
 

@@ -18,6 +18,9 @@ export function ControllerLayout() {
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Controller Track</p>
             <h1 className="mt-1 text-lg font-semibold text-slate-100">Logged in as {controller.name}</h1>
             <p className="text-xs text-slate-500">Controller ID · {controller.id}</p>
+            <p className="mt-1 text-xs text-pearl-primary">
+              Assigned Sector · {controller.sectorName} ({controller.shiftGroup})
+            </p>
           </div>
           <button
             onClick={logout}
