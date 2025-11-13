@@ -41,13 +41,12 @@ export function ControllerLayout() {
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
         <nav className="flex flex-wrap gap-3">
           <NavLink
-            to="/controller"
-            end
+            to="/controller/pre-shift"
             className={({ isActive }) =>
               `${navLinkStyles} ${isActive ? 'bg-sky-500/20 text-pearl-primary' : 'text-slate-300'}`
             }
           >
-            Overview
+            Pre-Shift Readiness
           </NavLink>
           <NavLink
             to="/controller/during"
@@ -56,14 +55,6 @@ export function ControllerLayout() {
             }
           >
             During Monitor
-          </NavLink>
-          <NavLink
-            to="/controller/pre-shift"
-            className={({ isActive }) =>
-              `${navLinkStyles} ${isActive ? 'bg-sky-500/20 text-pearl-primary' : 'text-slate-300'}`
-            }
-          >
-            Pre-Shift Readiness
           </NavLink>
           <NavLink
             to="/controller/post-shift"

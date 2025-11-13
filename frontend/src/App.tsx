@@ -1,9 +1,8 @@
-import { RouterProvider, createBrowserRouter } from 'react-router-dom'
+import { RouterProvider, createBrowserRouter, Navigate } from 'react-router-dom'
 import { Suspense } from 'react'
 import { ControllerLayout } from './features/controller/ControllerLayout'
 import { SupervisorLayout } from './features/supervisor/SupervisorLayout'
 import { Landing } from './features/landing/Landing'
-import { ControllerDashboard } from './features/controller/ControllerDashboard'
 import { DuringMonitor } from './features/controller/DuringMonitor'
 import { PreShiftWizard } from './features/controller/PreShiftWizard'
 import { PostShiftReview } from './features/controller/PostShiftReview'
@@ -23,15 +22,15 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <ControllerDashboard />,
-      },
-      {
-        path: 'during',
-        element: <DuringMonitor />,
+        element: <Navigate to="/controller/pre-shift" replace />,
       },
       {
         path: 'pre-shift',
         element: <PreShiftWizard />,
+      },
+      {
+        path: 'during',
+        element: <DuringMonitor />,
       },
       {
         path: 'post-shift',

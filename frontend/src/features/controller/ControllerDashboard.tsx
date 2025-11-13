@@ -8,7 +8,6 @@ import {
 } from '../../services/dataService'
 import type { FatigueSnapshot } from '../../types'
 import { useSessionStore } from '../../store/useSessionStore'
-import { RealtimeCapturePanel } from './RealtimeCapturePanel'
 
 const statusStyles: Record<FatigueSnapshot['status'], string> = {
   Normal: 'bg-pearl-success/20 text-pearl-success border border-pearl-success/40',
@@ -157,8 +156,6 @@ export function ControllerDashboard() {
           ) : null}
         </section>
       ) : null}
-
-      <RealtimeCapturePanel />
 
       <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
         <h3 className="text-lg font-semibold text-slate-200">Shift focus reminder</h3>

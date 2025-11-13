@@ -80,6 +80,7 @@ export function Landing() {
           <button
             type="button"
             onClick={() => handleRoleChange('controller')}
+            
             className={`rounded-2xl border p-6 text-left transition ${
               selectedRole === 'controller'
                 ? 'border-pearl-primary bg-slate-800 shadow-lg shadow-sky-500/20'
