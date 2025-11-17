@@ -126,12 +126,6 @@ export function ControllerManagement() {
               Each controller entry stores profile, baseline, and shift data inside `/database/controllers/{'{ID}'}`.
             </p>
           </div>
-          <button
-            onClick={() => setIsFormOpen(true)}
-            className="w-full rounded-xl bg-pearl-primary px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300 md:w-auto"
-          >
-            Add controller
-          </button>
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-800">

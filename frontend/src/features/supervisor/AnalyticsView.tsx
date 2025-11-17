@@ -1,7 +1,11 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { fetchShiftSummaries } from '../../services/dataService'
+import { fetchShiftSummaries, fetchControllers } from '../../services/dataService'
+import { FatigueEmployeeFilters } from './FatigueEmployeeFilters'
+import { FatigueEmployeeChart } from './FatigueEmployeeChart'
+import { FatigueWeeklyReportPopup } from './FatigueWeeklyReportPopup'
+import { exportToCSV, exportToPDF } from './exportUtils'
 
 const heatmapSlots = [
   { label: 'Morning', multiplier: 0.85 },
@@ -16,14 +20,78 @@ export function AnalyticsView() {
     queryFn: () => fetchShiftSummaries(),
   })
 
+  const { data: controllers } = useQuery({
+    queryKey: ['controllers'],
+    queryFn: fetchControllers,
+  })
+
+  // Filter state
+  const [timeRange, setTimeRange] = useState(() => {
+    const now = new Date()
+    const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // Last month
+    return { from, to: now }
+  })
+
+  const [selectedControllerIds, setSelectedControllerIds] = useState<string[]>(() => {
+    // Will be set after controllers load
+    return []
+  })
+
+  // Popup state
+  const [popupState, setPopupState] = useState<{
+    isOpen: boolean
+    controllerId: string
+    controllerName: string
+    date: string
+  }>({
+    isOpen: false,
+    controllerId: '',
+    controllerName: '',
+    date: '',
+  })
+
+  // Initialize selected controllers when controllers load
+  useEffect(() => {
+    if (controllers && selectedControllerIds.length === 0) {
+      setSelectedControllerIds(controllers.map((c) => c.id))
+    }
+  }, [controllers, selectedControllerIds.length])
+
   const chartData = useMemo(() => {
     if (!summaries) return []
-    return summaries.map((item) => ({
-      date: item.shiftDate,
-      peakFatigue: Number((item.peakFatigue * 100).toFixed(1)),
-      postShiftDelta: Number((item.postShiftDelta * 100).toFixed(1)),
-    }))
-  }, [summaries])
+    return summaries
+      .filter((item) => {
+        const itemDate = new Date(item.shiftDate)
+        return itemDate >= timeRange.from && itemDate <= timeRange.to
+      })
+      .map((item) => ({
+        date: item.shiftDate,
+        peakFatigue: Number((item.peakFatigue * 100).toFixed(1)),
+        postShiftDelta: Number((item.postShiftDelta * 100).toFixed(1)),
+      }))
+  }, [summaries, timeRange])
+
+  const handlePointClick = (controllerId: string, date: string) => {
+    const controller = controllers?.find((c) => c.id === controllerId)
+    if (controller) {
+      setPopupState({
+        isOpen: true,
+        controllerId,
+        controllerName: controller.name,
+        date,
+      })
+    }
+  }
+
+  const handleExportCSV = () => {
+    if (!summaries || !controllers) return
+    exportToCSV(summaries, controllers, selectedControllerIds, timeRange)
+  }
+
+  const handleExportPDF = () => {
+    if (!summaries || !controllers) return
+    exportToPDF(summaries, controllers, selectedControllerIds, timeRange)
+  }
 
   return (
     <div className="space-y-8">
@@ -85,6 +153,56 @@ export function AnalyticsView() {
         </div>
       </section>
 
+      {/* New Per-Employee Fatigue Analytics Section */}
+      {summaries && controllers && (
+        <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-200">Per-employee fatigue peaks</h3>
+              <p className="text-sm text-slate-400">
+                Track individual controller fatigue trends over time. Double-click on data points to view detailed reports.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleExportCSV}
+                className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:border-slate-600 hover:text-slate-50"
+              >
+                Export CSV
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="rounded-xl bg-pearl-primary px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-300"
+              >
+                Export PDF
+              </button>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="mt-6">
+            <FatigueEmployeeFilters
+              controllers={controllers}
+              selectedControllerIds={selectedControllerIds}
+              onControllerChange={setSelectedControllerIds}
+              timeRange={timeRange}
+              onTimeRangeChange={(from, to) => setTimeRange({ from, to })}
+            />
+          </div>
+
+          {/* Chart */}
+          <div className="mt-6">
+            <FatigueEmployeeChart
+              summaries={summaries}
+              controllers={controllers}
+              selectedControllerIds={selectedControllerIds}
+              timeRange={timeRange}
+              onPointClick={handlePointClick}
+            />
+          </div>
+        </section>
+      )}
+
       <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
         <h3 className="text-lg font-semibold text-slate-200">Shift-based fatigue multiplier</h3>
         <p className="mt-2 text-sm text-slate-400">
@@ -107,6 +225,21 @@ export function AnalyticsView() {
           </p>
         </div>
       </section>
+
+      {/* Drill-down Popup */}
+      {summaries && controllers && (
+        <FatigueWeeklyReportPopup
+          isOpen={popupState.isOpen}
+          onClose={() => setPopupState({ isOpen: false, controllerId: '', controllerName: '', date: '' })}
+          controllerId={popupState.controllerId}
+          controllerName={popupState.controllerName}
+          date={popupState.date}
+          summaries={summaries}
+          controllers={controllers}
+          timeRange={timeRange}
+          selectedControllerIds={selectedControllerIds}
+        />
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   fetchControllers,
@@ -9,6 +9,7 @@ import {
 import { subscribeToSimulation } from '../../services/simulationService'
 import type { ControllerProfile, FatigueSnapshot, VoiceFatigueSample } from '../../types'
 import { useVoiceFatigueStore } from '../../store/useVoiceFatigueStore'
+import { FatigueNotification } from './FatigueNotification'
 
 const statusBadge: Record<FatigueSnapshot['status'], string> = {
   Normal: 'bg-pearl-success/15 text-pearl-success border border-pearl-success/40',
@@ -34,6 +35,10 @@ export function SupervisorDashboard() {
 
   const [frames, setFrames] = useState<FatigueSnapshot[]>(() => getSimulationFrame(0))
   const [selectedSector, setSelectedSector] = useState<string>('ALL')
+  const [notifications, setNotifications] = useState<
+    Array<{ id: string; controller: ControllerProfile; snapshot: FatigueSnapshot }>
+  >([])
+  const previousHighFatigueControllers = useRef<Set<string>>(new Set())
 
   useEffect(() => subscribeToSimulation(setFrames), [])
 
@@ -91,8 +96,49 @@ export function SupervisorDashboard() {
       )
   }, [controllers, voiceLatest])
 
+  // Monitor for high fatigue controllers and trigger notifications
+  useEffect(() => {
+    if (!controllers) return
+
+    const currentHighFatigueControllers = new Set<string>()
+    const newNotifications: Array<{ id: string; controller: ControllerProfile; snapshot: FatigueSnapshot }> = []
+
+    combined.forEach(({ controller, snapshot }) => {
+      if (snapshot?.status === 'High Fatigue') {
+        currentHighFatigueControllers.add(controller.id)
+
+        // Only show notification if this controller wasn't in high fatigue before
+        if (!previousHighFatigueControllers.current.has(controller.id)) {
+          newNotifications.push({
+            id: `${controller.id}-${Date.now()}`,
+            controller,
+            snapshot,
+          })
+        }
+      }
+    })
+
+    // Add new notifications
+    if (newNotifications.length > 0) {
+      setNotifications((prev) => [...prev, ...newNotifications])
+    }
+
+    // Remove notifications for controllers that are no longer in high fatigue
+    setNotifications((prev) =>
+      prev.filter((notif) => currentHighFatigueControllers.has(notif.controller.id)),
+    )
+
+    previousHighFatigueControllers.current = currentHighFatigueControllers
+  }, [combined, controllers])
+
+  const handleDismissNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((notif) => notif.id !== id))
+  }, [])
+
   return (
-    <div className="space-y-8">
+    <>
+      <FatigueNotification notifications={notifications} onDismiss={handleDismissNotification} />
+      <div className="space-y-8">
       <header className="grid gap-6 md:grid-cols-4">
         <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Controllers online</p>
@@ -150,8 +196,6 @@ export function SupervisorDashboard() {
                 <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Sector</th>
                 <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Fatigue Score</th>
                 <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Voice</th>
-                <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Key Factors</th>
                 <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Recommendation</th>
               </tr>
             </thead>
@@ -176,33 +220,6 @@ export function SupervisorDashboard() {
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${snapshot ? statusBadge[snapshot.status] : ''}`}>
                       {snapshot?.status ?? 'Waiting'}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-slate-300">
-                    {voiceSample ? (
-                      <div className="space-y-1">
-                        <div className={`font-semibold text-lg ${voiceSample.alertTriggered ? 'text-pearl-warning' : 'text-pearl-success'}`}>
-                          {voiceSample.alertTriggered ? '⚠️ Alert' : '✓ Normal'}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {Math.round(voiceSample.mfccCorrelation * 100)}% match
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-500">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    {snapshot ? (
-                      <ul className="space-y-1">
-                        {snapshot.factors.map((factor) => (
-                          <li key={factor.label} className="flex items-center gap-2 text-xs text-slate-300">
-                            <span className="font-medium text-slate-200">{factor.label}:</span> {factor.value}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <span className="text-xs text-slate-500">Awaiting stream…</span>
-                    )}
                   </td>
                   <td className="px-6 py-4 text-xs text-slate-300">
                     <div>{snapshot?.recommendation ?? 'Listening for AI advisory…'}</div>
@@ -384,7 +401,8 @@ export function SupervisorDashboard() {
           </div>
         </section>
       ) : null}
-    </div>
+      </div>
+    </>
   )
 }
 
