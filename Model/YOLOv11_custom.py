@@ -15,7 +15,7 @@ import time
 import os
 
 # Load the model with correct path
-model_path = 'Model/best (1).pt'
+model_path = 'Model/best (4).pt'
 print(f"Loading model from: {model_path}")
 
 if not os.path.exists(model_path):
