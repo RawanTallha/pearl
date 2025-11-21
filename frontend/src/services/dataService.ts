@@ -1,3 +1,4 @@
+import axios from 'axios'
 import type {
   ControllerProfile,
   FatigueSnapshot,
@@ -7,81 +8,107 @@ import type {
   SupervisorAction,
   SupervisorProfile,
 } from '../types'
-import {
-  mockControllers,
-  mockSectors,
-  mockSupervisor,
-  mockShiftSummaries,
-  mockSupervisorActions,
-  simulationFrames,
-} from './mockData'
 
-const NETWORK_DELAY = 350
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
-const byId = new Map<string, ControllerProfile>(mockControllers.map((controller) => [controller.id, controller]))
-const sectorsById = new Map<string, SectorRoster>(mockSectors.map((sector) => [sector.id, sector]))
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+})
+
+function isNotFound(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 404
+}
 
 export async function authenticateController(controllerId: string): Promise<ControllerProfile | null> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  return byId.get(controllerId) ?? null
+  if (!controllerId) return null
+  try {
+    const { data } = await api.post<ControllerProfile>('/auth/controller', { controllerId })
+    return data
+  } catch (error) {
+    if (isNotFound(error)) return null
+    throw error
+  }
 }
 
 export async function authenticateSupervisor(
   supervisorId: string,
   password: string,
 ): Promise<SupervisorProfile | null> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  if (supervisorId === mockSupervisor.id && password === mockSupervisor.password) {
-    return mockSupervisor
+  try {
+    const { data } = await api.post<SupervisorProfile>('/auth/supervisor', { supervisorId, password })
+    return data
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      return null
+    }
+    throw error
   }
-  return null
 }
 
-export async function fetchControllers(): Promise<ControllerProfile[]> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  return mockControllers
+export async function fetchControllers(sectorId?: string): Promise<ControllerProfile[]> {
+  const params = sectorId ? { sectorId } : undefined
+  const { data } = await api.get<ControllerProfile[]>('/controllers', { params })
+  return data
 }
 
 export async function fetchControllerById(controllerId: string): Promise<ControllerProfile | null> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  return byId.get(controllerId) ?? null
+  if (!controllerId) return null
+  try {
+    const { data } = await api.get<ControllerProfile>(`/controllers/${controllerId}`)
+    return data
+  } catch (error) {
+    if (isNotFound(error)) return null
+    throw error
+  }
 }
 
 export async function fetchShiftSummaries(controllerId?: string): Promise<ShiftSummary[]> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  if (!controllerId) return mockShiftSummaries
-  return mockShiftSummaries.filter((summary) => summary.controllerId === controllerId)
+  const params = controllerId ? { controllerId } : undefined
+  const { data } = await api.get<{ summaries: ShiftSummary[] }>('/analytics/monthly', { params })
+  return data.summaries
 }
 
 export async function fetchSupervisorActions(): Promise<SupervisorAction[]> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  return mockSupervisorActions
+  const { data } = await api.get<SupervisorAction[]>('/actions')
+  return data
 }
 
-export function getSimulationFrame(index: number): FatigueSnapshot[] {
-  return simulationFrames[index % simulationFrames.length]
+export async function fetchLiveFrame(): Promise<FatigueSnapshot[]> {
+  const { data } = await api.get<{ timestamp: string; controllers: FatigueSnapshot[] }>('/dashboard/live')
+  return data.controllers ?? []
 }
 
 export async function fetchSectorRosters(): Promise<SectorRoster[]> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  return mockSectors
+  const { data } = await api.get<SectorRoster[]>('/sectors')
+  return data
 }
 
 export async function fetchSectorById(sectorId: string): Promise<SectorRoster | null> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  return sectorsById.get(sectorId) ?? null
+  if (!sectorId) return null
+  try {
+    const { data } = await api.get<SectorRoster>(`/sectors/${sectorId}`)
+    return data
+  } catch (error) {
+    if (isNotFound(error)) return null
+    throw error
+  }
 }
 
 export async function fetchSectorForController(controllerId: string): Promise<SectorRoster | null> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  const controller = byId.get(controllerId)
-  if (!controller) return null
-  return sectorsById.get(controller.sectorId) ?? null
+  if (!controllerId) return null
+  try {
+    const { data } = await api.get<SectorRoster>(`/controllers/${controllerId}/sector`)
+    return data
+  } catch (error) {
+    if (isNotFound(error)) return null
+    throw error
+  }
 }
 
 export async function fetchSectorCatalog(): Promise<SectorSummary[]> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  return mockSectors.map((sector) => ({
+  const rosters = await fetchSectorRosters()
+  return rosters.map((sector) => ({
     id: sector.id,
     name: sector.name,
     shiftGroup: sector.shiftGroup,
@@ -89,16 +116,18 @@ export async function fetchSectorCatalog(): Promise<SectorSummary[]> {
 }
 
 export async function fetchControllersBySector(sectorId: string): Promise<ControllerProfile[]> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  return mockControllers.filter((controller) => controller.sectorId === sectorId)
+  if (!sectorId) return []
+  return fetchControllers(sectorId)
 }
 
 export async function fetchBackupCandidate(controllerId: string): Promise<ControllerProfile | null> {
-  await new Promise((resolve) => setTimeout(resolve, NETWORK_DELAY))
-  const controller = byId.get(controllerId)
-  if (!controller) return null
-  const sector = sectorsById.get(controller.sectorId)
-  if (!sector) return null
-  return sector.backup.find((candidate) => candidate.id !== controllerId) ?? null
+  if (!controllerId) return null
+  try {
+    const { data } = await api.get<ControllerProfile>(`/controllers/${controllerId}/backup`)
+    return data
+  } catch (error) {
+    if (isNotFound(error)) return null
+    throw error
+  }
 }
 

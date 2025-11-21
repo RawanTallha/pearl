@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams, Navigate, useNavigate } from 'react-router-dom'
 import { Line, LineChart, ResponsiveContainer, Tooltip, CartesianGrid, YAxis, XAxis, ReferenceArea } from 'recharts'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVoiceFatigueStore } from '../../store/useVoiceFatigueStore'
+import { fetchControllers } from '../../services/dataService'
+import { useQuery } from '@tanstack/react-query'
 import type { ControllerProfile, VoiceFatigueAlertLog, VoiceFatigueSample } from '../../types'
 
 const WINDOW_MS = 5000 // 5-second analysis windows per Paper v07
@@ -41,7 +44,32 @@ const statusCopy: Record<MonitorStatus, { label: string; helper: string }> = {
 }
 
 export function DuringMonitor() {
-  const controller = useSessionStore((state) => state.controller)
+  const navigate = useNavigate()
+  const { controllerId: paramControllerId } = useParams<{ controllerId: string }>()
+  const currentController = useSessionStore((state) => state.controller)
+  const supervisor = useSessionStore((state) => state.supervisor)
+  
+  // If accessed via supervisor route with controllerId param, fetch that controller
+  // Otherwise, use the logged-in controller
+  const { data: controllers } = useQuery({
+    queryKey: ['controllers'],
+    queryFn: () => fetchControllers(),
+    enabled: Boolean(paramControllerId && supervisor),
+  })
+  
+  const targetController = paramControllerId && controllers 
+    ? controllers.find(c => c.id === paramControllerId)
+    : currentController
+  
+  // Only allow access if supervisor is logged in OR if it's the controller's own view
+  const isSupervisorView = Boolean(supervisor && paramControllerId)
+  const isAuthorized = Boolean(supervisor) || (Boolean(currentController) && !paramControllerId)
+  
+  if (!isAuthorized || !targetController) {
+    return <Navigate to={supervisor ? '/supervisor' : '/'} replace />
+  }
+  
+  const controller = targetController
   const pushSample = useVoiceFatigueStore((state) => state.pushSample)
   const pushAlert = useVoiceFatigueStore((state) => state.pushAlert)
   const clearForController = useVoiceFatigueStore((state) => state.clearForController)
@@ -248,74 +276,102 @@ export function DuringMonitor() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-6 lg:flex-row lg:items-center lg:justify-between">
+      <header className="flex flex-col gap-6 rounded-2xl border border-slate-700 bg-slate-900/80 p-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.25em] text-pearl-primary">During-Shift Monitor</p>
-          <h2 className="text-2xl font-semibold text-slate-100">Voice Monitoring</h2>
-          <p className="max-w-2xl text-sm text-slate-400">
-            Your voice is being monitored to detect fatigue. Alerts appear automatically when needed.
+          {isSupervisorView && (
+            <button
+              onClick={() => navigate('/supervisor')}
+              className="mb-2 flex items-center gap-2 text-sm text-slate-400 hover:text-slate-100 transition-colors"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Dashboard
+            </button>
+          )}
+          <p className="text-xs uppercase tracking-[0.25em] text-pearl-primary">
+            {isSupervisorView ? 'Controller Performance Monitor' : 'During-Shift Monitor'}
           </p>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-300">
-          <p className="text-xs uppercase tracking-wide text-slate-500">🔒 Privacy</p>
-          <p className="mt-2 max-w-xs">
-            Your voice stays private. Only fatigue alerts are shared with supervisors.
+          <h2 className="text-2xl font-semibold text-slate-100">
+            {isSupervisorView ? `Voice Monitoring - ${controller.name}` : 'Voice Monitoring'}
+          </h2>
+          <p className="max-w-2xl text-sm text-slate-500">
+            {isSupervisorView 
+              ? `Monitoring voice fatigue indicators for ${controller.name}. Real-time performance data and alerts.`
+              : 'Your voice is being monitored to detect fatigue. Alerts appear automatically when needed.'}
           </p>
         </div>
+        {!isSupervisorView && (
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/65 p-4 text-sm text-slate-500">
+            <p className="text-xs uppercase tracking-wide text-slate-500">🔒 Privacy</p>
+            <p className="mt-2 max-w-xs">
+              Your voice stays private. Only fatigue alerts are shared with supervisors.
+            </p>
+          </div>
+        )}
       </header>
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,340px)_1fr]">
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-100">Microphone</h3>
               <StatusBadge status={status} />
             </div>
-            <p className="mt-1 text-sm text-slate-400">{currentStatus.helper}</p>
+            <p className="mt-1 text-sm text-slate-500">{currentStatus.helper}</p>
             <Waveform points={waveform} disabled={status !== 'listening'} />
             {error ? <p className="mt-2 text-sm text-pearl-danger">{error}</p> : null}
-            <div className="mt-5 flex gap-3">
-              <button
-                type="button"
-                onClick={startMonitoring}
-                className="rounded-xl border border-pearl-primary/70 px-4 py-2 text-xs font-semibold text-pearl-primary hover:border-pearl-primary disabled:opacity-60"
-                disabled={status === 'requesting' || status === 'listening' || status === 'unsupported'}
-              >
-                {status === 'requesting' ? 'Requesting…' : status === 'listening' ? 'Listening' : 'Start listening'}
-              </button>
-              <button
-                type="button"
-                onClick={stopMonitoring}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-60"
-                disabled={status !== 'listening'}
-              >
-                Stop
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 text-sm text-slate-300">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Alert supervisor</p>
-                <p className="mt-1 text-slate-300">Notify supervisor when fatigue is detected</p>
+            {!isSupervisorView && (
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={startMonitoring}
+                  className="rounded-xl border border-pearl-primary/70 px-4 py-2 text-xs font-semibold text-pearl-primary hover:border-pearl-primary disabled:opacity-60"
+                  disabled={status === 'requesting' || status === 'listening' || status === 'unsupported'}
+                >
+                  {status === 'requesting' ? 'Requesting…' : status === 'listening' ? 'Listening' : 'Start listening'}
+                </button>
+                <button
+                  type="button"
+                  onClick={stopMonitoring}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-slate-500 disabled:opacity-60"
+                  disabled={status !== 'listening'}
+                >
+                  Stop
+                </button>
               </div>
-              <Toggle value={supervisorRouting} onChange={setSupervisorRouting} />
-            </div>
+            )}
+            {isSupervisorView && (
+              <div className="mt-5 rounded-xl border border-slate-700 bg-slate-900/55 px-4 py-3 text-sm text-slate-400">
+                <p>Monitoring is controlled by the controller. You are viewing real-time performance data.</p>
+              </div>
+            )}
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 text-sm text-slate-300">
+          {!isSupervisorView && (
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 text-sm text-slate-500">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Alert supervisor</p>
+                  <p className="mt-1 text-slate-500">Notify supervisor when fatigue is detected</p>
+                </div>
+                <Toggle value={supervisorRouting} onChange={setSupervisorRouting} />
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 text-sm text-slate-500">
             <h3 className="text-lg font-semibold text-slate-100">Reminders</h3>
             {hydrationReminder ? (
               <p className="mt-3 rounded-xl border border-pearl-warning/40 bg-pearl-warning/10 px-3 py-3 text-pearl-warning">{hydrationReminder}</p>
             ) : (
-              <p className="mt-3 text-slate-400">All good. Take regular breaks and stay hydrated.</p>
+              <p className="mt-3 text-slate-500">All good. Take regular breaks and stay hydrated.</p>
             )}
           </div>
         </div>
 
         <div className="grid gap-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
             <h3 className="text-lg font-semibold text-slate-100">Fatigue Level</h3>
             <div className="mt-4 h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -342,7 +398,7 @@ export function DuringMonitor() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
             <h3 className="text-lg font-semibold text-slate-100">Current Status</h3>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {metrics.slice(0, 2).map((metric) => (
@@ -351,9 +407,9 @@ export function DuringMonitor() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
             <h3 className="text-lg font-semibold text-slate-100">Recent Alerts</h3>
-          <div className="mt-4 space-y-3 text-sm text-slate-300">
+          <div className="mt-4 space-y-3 text-sm text-slate-500">
               {supervisorAlerts.length === 0 ? (
                 <p className="text-xs text-slate-500">No alerts this shift</p>
               ) : (
@@ -379,11 +435,11 @@ type MetricDescriptor = {
 
 function StatusBadge({ status }: { status: MonitorStatus }) {
   const colors: Record<MonitorStatus, string> = {
-    idle: 'bg-slate-800/70 text-slate-300 border border-slate-700/70',
+    idle: 'bg-slate-900/50 text-slate-500 border border-slate-700',
     requesting: 'bg-pearl-warning/20 text-pearl-warning border border-pearl-warning/40',
     listening: 'bg-pearl-success/20 text-pearl-success border border-pearl-success/40',
     denied: 'bg-pearl-danger/20 text-pearl-danger border border-pearl-danger/40',
-    unsupported: 'bg-slate-800/70 text-slate-400 border border-slate-700/70',
+    unsupported: 'bg-slate-900/50 text-slate-500 border border-slate-700',
     error: 'bg-pearl-danger/20 text-pearl-danger border border-pearl-danger/40',
   }
   return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${colors[status]}`}>{statusCopy[status].label}</span>
@@ -403,7 +459,7 @@ function Waveform({ points, disabled }: { points: number[]; disabled: boolean })
   }, [points])
 
   return (
-    <div className="mt-4 h-32 w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/90">
+    <div className="mt-4 h-32 w-full overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80">
       <svg viewBox="0 0 100 50" preserveAspectRatio="none" className="h-full w-full">
         <rect x="0" y="0" width="100" height="50" fill={disabled ? '#111827' : '#020617'} />
         <path d={path} stroke={disabled ? '#475569' : '#0ea5e9'} strokeWidth={1.3} strokeLinecap="round" fill="none" />
@@ -417,11 +473,11 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (next: boolean)
     <button
       type="button"
       onClick={() => onChange(!value)}
-      className={`relative h-7 w-12 rounded-full border transition ${value ? 'border-pearl-primary bg-pearl-primary/30' : 'border-slate-700 bg-slate-800/80'}`}
+      className={`relative h-7 w-12 rounded-full border transition ${value ? 'border-pearl-primary bg-pearl-primary/30' : 'border-slate-700 bg-slate-900/50'}`}
       aria-pressed={value}
     >
       <span
-        className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white transition ${value ? 'translate-x-5 bg-pearl-primary' : 'translate-x-0'}`}
+        className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-slate-950/70 transition ${value ? 'translate-x-5 bg-pearl-primary' : 'translate-x-0'}`}
       />
     </button>
   )
@@ -429,7 +485,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (next: boolean)
 
 function MetricCard({ label, value, helper, statusLabel, statusClass }: MetricDescriptor) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+    <div className="rounded-2xl border border-slate-700 bg-slate-900/65 p-4">
       <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-slate-100">{value}</p>
       <p className="mt-1 text-xs text-slate-500">{helper}</p>
@@ -445,7 +501,7 @@ function AlertCard({ log }: { log: VoiceFatigueAlertLog }) {
       : 'border-pearl-warning/40 bg-pearl-warning/10 text-pearl-warning'
   return (
     <div className={`rounded-xl border px-4 py-3 text-sm ${palette}`}>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-500">
         {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
       <p className="mt-1 text-sm font-medium">

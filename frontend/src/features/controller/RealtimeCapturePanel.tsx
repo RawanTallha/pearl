@@ -78,14 +78,14 @@ export function RealtimeCapturePanel() {
         ? 'text-pearl-warning'
         : status === 'denied' || status === 'error'
           ? 'text-pearl-danger'
-          : 'text-slate-400'
+          : 'text-slate-500'
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/70">
-      <div className="flex flex-col gap-4 border-b border-slate-800 px-6 py-4 md:flex-row md:items-center md:justify-between">
+    <div className="rounded-2xl border border-slate-700 bg-slate-900/80">
+      <div className="flex flex-col gap-4 border-b border-slate-700 px-6 py-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-100">Live capture interface</h3>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             Grant camera and microphone access so the Edge AI module can continuously refresh blink, yawn, and tone
             baselines. Prototype analytics still stream from mock data while validating hardware permissions.
           </p>
@@ -102,7 +102,7 @@ export function RealtimeCapturePanel() {
           <button
             type="button"
             onClick={stopCapture}
-            className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 hover:border-slate-500"
+            className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-slate-500"
             disabled={!stream}
           >
             Stop
@@ -110,7 +110,7 @@ export function RealtimeCapturePanel() {
         </div>
       </div>
       <div className="grid gap-6 p-6 md:grid-cols-[minmax(0,360px)_1fr]">
-        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/55">
           <video
             ref={videoRef}
             muted
@@ -119,7 +119,7 @@ export function RealtimeCapturePanel() {
             aria-label="Live camera preview"
           />
           {!stream ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-950/70 text-center text-sm text-slate-400">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/80 text-center text-sm text-slate-500">
               <span className={`text-lg font-semibold ${indicatorColor}`}>
                 {status === 'granted'
                   ? 'Capturing…'
@@ -139,14 +139,14 @@ export function RealtimeCapturePanel() {
             </div>
           ) : null}
         </div>
-        <div className="space-y-4 text-sm text-slate-300">
+        <div className="space-y-4 text-sm text-slate-500">
           <div>
             <p className={`text-xs uppercase tracking-[0.25em] ${indicatorColor}`}>Status</p>
-            <p className="mt-2 text-base text-slate-200">{statusMessage}</p>
+            <p className="mt-2 text-base text-slate-500">{statusMessage}</p>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Simulation link</p>
-            <p className="mt-2 text-slate-200">
+            <p className="mt-2 text-slate-500">
               Mock fatigue scores continue to stream every 5 seconds, mimicking what the Edge AI inference would
               contribute once the sensor feed is live.
             </p>
@@ -155,9 +155,9 @@ export function RealtimeCapturePanel() {
               Controller ID; raw media stays on the workstation.
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">Privacy reminder</p>
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-300">
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-slate-500">
               <li>Permission can be revoked anytime from this panel or browser settings.</li>
               <li>Media tracks shut down instantly when you press “Stop”.</li>
               <li>No video or audio leaves the control center network during simulation.</li>

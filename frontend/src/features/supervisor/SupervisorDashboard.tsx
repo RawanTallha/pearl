@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  fetchControllers,
-  fetchSectorRosters,
-  fetchSupervisorActions,
-  getSimulationFrame,
-} from '../../services/dataService'
+import { fetchControllers, fetchSectorRosters, fetchSupervisorActions, fetchLiveFrame } from '../../services/dataService'
 import { subscribeToSimulation } from '../../services/simulationService'
-import type { ControllerProfile, FatigueSnapshot, VoiceFatigueSample } from '../../types'
+import type { ControllerProfile, FatigueSnapshot, SupervisorAction, VoiceFatigueSample } from '../../types'
 import { useVoiceFatigueStore } from '../../store/useVoiceFatigueStore'
 import { FatigueNotification } from './FatigueNotification'
 import { exportSupervisorActionsToCSV, exportSupervisorActionsToPDF } from './exportUtils'
@@ -21,33 +16,55 @@ const statusBadge: Record<FatigueSnapshot['status'], string> = {
 export function SupervisorDashboard() {
   const { data: controllers } = useQuery({
     queryKey: ['controllers'],
-    queryFn: fetchControllers,
+    queryFn: () => fetchControllers(),
   })
 
   const { data: sectorRosters } = useQuery({
     queryKey: ['sector-rosters'],
-    queryFn: fetchSectorRosters,
+    queryFn: () => fetchSectorRosters(),
   })
 
   const { data: actions } = useQuery({
     queryKey: ['supervisor-actions'],
-    queryFn: fetchSupervisorActions,
+    queryFn: () => fetchSupervisorActions(),
   })
 
-  const [frames, setFrames] = useState<FatigueSnapshot[]>(() => getSimulationFrame(0))
+  const [frames, setFrames] = useState<FatigueSnapshot[]>([])
   const [selectedSector, setSelectedSector] = useState<string>('ALL')
   const [notifications, setNotifications] = useState<
     Array<{ id: string; controller: ControllerProfile; snapshot: FatigueSnapshot }>
   >([])
   const previousHighFatigueControllers = useRef<Set<string>>(new Set())
   const [assignedBackups, setAssignedBackups] = useState<Map<string, string>>(new Map())
-  const [localActions, setLocalActions] = useState<Array<{ id: string; controllerId: string; action: string; message: string; createdAt: string }>>([])
+  const [localActions, setLocalActions] = useState<SupervisorAction[]>([])
   const [showDropdownForController, setShowDropdownForController] = useState<string | null>(null)
   const [selectedBackupForController, setSelectedBackupForController] = useState<Map<string, string>>(new Map())
   const [actionsPanelExpanded, setActionsPanelExpanded] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [sectorRosterExpanded, setSectorRosterExpanded] = useState(false)
 
-  useEffect(() => subscribeToSimulation(setFrames), [])
+  useEffect(() => {
+    let mounted = true
+    fetchLiveFrame()
+      .then((initial) => {
+        if (mounted && initial.length > 0) {
+          setFrames(initial)
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load initial live frame', error)
+      })
+
+    const unsubscribe = subscribeToSimulation((payload) => {
+      if (mounted) {
+        setFrames(payload)
+      }
+    })
+    return () => {
+      mounted = false
+      unsubscribe()
+    }
+  }, [])
 
   const voiceLatest = useVoiceFatigueStore((state) => state.latestByController)
   const voiceAlerts = useVoiceFatigueStore((state) => state.alertLog)
@@ -170,6 +187,11 @@ export function SupervisorDashboard() {
     setNotifications((prev) => prev.filter((notif) => notif.id !== id))
   }, [])
 
+  // Also add a handler to dismiss by controller ID for when backup is already assigned
+  const handleDismissNotificationByController = useCallback((controllerId: string) => {
+    setNotifications((prev) => prev.filter((notif) => notif.controller.id !== controllerId))
+  }, [])
+
   // Get available backups for a sector (excluding assigned ones)
   const getAvailableBackups = useCallback(
     (sectorId: string): ControllerProfile[] => {
@@ -213,7 +235,7 @@ export function SupervisorDashboard() {
 
       // Add to local actions
       const actionMessage = `Backup assigned for Controller: ${controller.name} (${controller.id}) — Backup: ${backup.name} (${backup.id})`
-      const newAction = {
+      const newAction: SupervisorAction = {
         id: `local-${Date.now()}-${controllerId}`,
         controllerId,
         action: 'backup_assigned',
@@ -229,14 +251,13 @@ export function SupervisorDashboard() {
         newMap.delete(controllerId)
         return newMap
       })
+
+      // Dismiss notification for this controller
+      setNotifications((prev) => prev.filter((notif) => notif.controller.id !== controllerId))
     },
     [selectedBackupForController, controllers, sectorRosters],
   )
 
-  // Get controllers in High Fatigue status
-  const highFatigueControllers = useMemo(() => {
-    return combined.filter(({ snapshot }) => snapshot?.status === 'High Fatigue')
-  }, [combined])
 
   // Combine local actions with API actions
   const allActions = useMemo(() => {
@@ -279,7 +300,7 @@ export function SupervisorDashboard() {
         }
       }
 
-      const newAction = {
+      const newAction: SupervisorAction = {
         id: `local-${Date.now()}-${controllerId}-delay`,
         controllerId,
         action: 'delay',
@@ -287,200 +308,150 @@ export function SupervisorDashboard() {
         createdAt: new Date().toISOString(),
       }
       setLocalActions((prev) => [...prev, newAction])
+
+      // Dismiss notification for this controller
+      setNotifications((prev) => prev.filter((notif) => notif.controller.id !== controllerId))
     },
     [controllers, assignedBackups],
   )
 
   return (
     <>
-      <FatigueNotification notifications={notifications} onDismiss={handleDismissNotification} />
       <div className="space-y-8">
       <header className="grid gap-6 md:grid-cols-4">
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Controllers online</p>
           <p className="mt-2 text-4xl font-semibold text-slate-100">{filtered.length}</p>
-          <p className="mt-2 text-sm text-slate-400">Active controllers</p>
+          <p className="mt-2 text-sm text-slate-500">Active controllers</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Active alerts</p>
           <p className="mt-2 text-4xl font-semibold text-pearl-warning">{activeAlerts.length}</p>
-          <p className="mt-2 text-sm text-slate-400">Require attention</p>
+          <p className="mt-2 text-sm text-slate-500">Require attention</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Voice fatigue alerts</p>
           <p className="mt-2 text-4xl font-semibold text-pearl-warning">{voiceActiveCount}</p>
-          <p className="mt-2 text-sm text-slate-400">Voice fatigue detected</p>
+          <p className="mt-2 text-sm text-slate-500">Voice fatigue detected</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Recent interventions</p>
           <p className="mt-2 text-4xl font-semibold text-slate-100">{actions?.length ?? 0}</p>
-          <p className="mt-2 text-sm text-slate-400">Actions taken today</p>
+          <p className="mt-2 text-sm text-slate-500">Actions taken today</p>
         </div>
       </header>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/70">
-        <div className="border-b border-slate-800 px-6 py-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-200">Controller Status</h2>
-              <p className="text-sm text-slate-400">
-                Real-time fatigue monitoring
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs uppercase tracking-[0.25em] text-slate-500">Sector</label>
-              <select
-                value={selectedSector}
-                onChange={(event) => setSelectedSector(event.target.value)}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
-              >
-                <option value="ALL">All sectors</option>
-                {filterOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-800 text-sm">
-            <thead className="bg-slate-900/80 text-slate-400">
-              <tr>
-                <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Controller</th>
-                <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Sector</th>
-                <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Fatigue Score</th>
-                <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Recommendation</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80 text-slate-200">
-              {filtered.map(({ controller, snapshot }) => {
-                const backupName = backupBySector.get(controller.sectorId)
-                const voiceSample = voiceLatest[controller.id]
-                return (
-                <tr key={controller.id} className="hover:bg-slate-900/40">
-                  <td className="px-6 py-4">
-                    <div className="font-semibold text-slate-100">{controller.name}</div>
-                    <div className="text-xs text-slate-500">{controller.id}</div>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-slate-300">
-                    <div className="font-semibold text-slate-200">{controller.sectorName}</div>
-                    <div className="text-[10px] uppercase tracking-wide text-slate-500">{controller.rosterRole}</div>
-                  </td>
-                  <td className="px-6 py-4 font-mono text-lg">
-                    {snapshot ? snapshot.score.toFixed(2) : <span className="text-slate-500">--</span>}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${snapshot ? statusBadge[snapshot.status] : ''}`}>
-                      {snapshot?.status ?? 'Waiting'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-slate-300">
-                    <div>{snapshot?.recommendation ?? 'Listening for AI advisory…'}</div>
-                    {snapshot?.status === 'High Fatigue' && backupName ? (
-                      <p className="mt-2 rounded-lg border border-pearl-warning/30 bg-pearl-warning/10 px-3 py-2 font-semibold text-pearl-warning">
-                        Notify backup: {backupName}
-                      </p>
-                    ) : null}
-                  </td>
-                </tr>
-              )})}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-          <h3 className="text-lg font-semibold text-slate-200">Action Required</h3>
-          <p className="mt-2 text-sm text-slate-400">
-            Controllers needing attention
-          </p>
-          <div className="mt-4 space-y-4">
-            {highFatigueControllers.length > 0 ? (
-              highFatigueControllers.map(({ controller, snapshot }) => {
-                const availableBackups = getAvailableBackups(controller.sectorId)
-                const isDropdownOpen = showDropdownForController === controller.id
-                const selectedBackupId = selectedBackupForController.get(controller.id)
-                const hasAssignedBackup = assignedBackups.has(controller.id)
-
-                return (
-                  <div key={controller.id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-                    <p className="text-sm text-slate-300">
-                      <span className="font-semibold text-slate-100">
-                        {controller.name} • {snapshot?.score.toFixed(2) ?? 'N/A'} (High Fatigue)
-                      </span>
-                      {snapshot?.recommendation && (
-                        <span className="ml-2">— {snapshot.recommendation}</span>
-                      )}
-                    </p>
-                    {!hasAssignedBackup && (
-                      <>
-                        {!isDropdownOpen ? (
-                          <div className="mt-4 flex gap-2">
-                            <button
-                              onClick={() => handleNotifyBackup(controller.id)}
-                              className="rounded-xl bg-pearl-danger/20 px-4 py-2 text-xs font-semibold text-pearl-danger hover:bg-pearl-danger/30"
-                            >
-                              Notify Backup Controller
-                            </button>
-                            <button
-                              onClick={() => handleDelayMonitoring(controller.id)}
-                              className="rounded-xl border border-slate-700/70 px-4 py-2 text-xs font-semibold text-slate-200 hover:border-slate-600"
-                            >
-                              Delay and monitor 10 minutes
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="mt-4 space-y-3">
-                            <select
-                              value={selectedBackupId || ''}
-                              onChange={(e) => handleBackupSelection(controller.id, e.target.value)}
-                              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
-                            >
-                              <option value="">Select backup controller...</option>
-                              {availableBackups.map((backup) => (
-                                <option key={backup.id} value={backup.id}>
-                                  {backup.name}
-                                </option>
-                              ))}
-                            </select>
-                            {selectedBackupId && (
-                              <button
-                                onClick={() => handleConfirmBackup(controller.id)}
-                                className="rounded-xl bg-pearl-primary/20 px-4 py-2 text-xs font-semibold text-pearl-primary hover:bg-pearl-primary/30"
-                              >
-                                Confirm
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {hasAssignedBackup && (
-                      <p className="mt-4 text-xs text-slate-400">
-                        Backup controller already assigned
-                      </p>
-                    )}
-                  </div>
-                )
-              })
-            ) : (
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-                <p className="text-sm text-slate-400">No controllers require immediate action.</p>
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80">
+          <div className="border-b border-slate-700 px-6 py-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-500">Controller Status</h2>
+                <p className="text-sm text-slate-500">
+                  Real-time fatigue monitoring
+                </p>
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <label className="text-xs uppercase tracking-[0.25em] text-slate-500">Sector</label>
+                <select
+                  value={selectedSector}
+                  onChange={(event) => setSelectedSector(event.target.value)}
+                  className="rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                >
+                  <option value="ALL">All sectors</option>
+                  {filterOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-800 text-sm">
+              <thead className="bg-slate-900/70 text-slate-500">
+                <tr>
+                  <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Controller</th>
+                  <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Sector</th>
+                  <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Fatigue Score</th>
+                  <th className="px-6 py-3 text-left font-medium uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Recommendation</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80 text-slate-500">
+                {filtered.map(({ controller, snapshot }) => {
+                  const backupName = backupBySector.get(controller.sectorId)
+                  return (
+                  <tr key={controller.id} className="hover:bg-slate-900/50">
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-slate-100">{controller.name}</div>
+                      <div className="text-xs text-slate-500">{controller.id}</div>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-500">
+                      <div className="font-semibold text-slate-500">{controller.sectorName}</div>
+                      <div className="text-[10px] uppercase tracking-wide text-slate-500">{controller.rosterRole}</div>
+                    </td>
+                    <td className="px-6 py-4 font-mono text-lg">
+                      {snapshot ? snapshot.score.toFixed(2) : <span className="text-slate-500">--</span>}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${snapshot ? statusBadge[snapshot.status] : 'bg-slate-800/50 text-slate-500 border border-slate-700'}`}>
+                        {snapshot?.status ?? 'Waiting'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-500">
+                      <div>{snapshot?.recommendation ?? 'Listening for AI advisory…'}</div>
+                      {snapshot?.status === 'High Fatigue' && backupName ? (
+                        <p className="mt-2 rounded-lg border border-pearl-warning/30 bg-pearl-warning/10 px-3 py-2 font-semibold text-pearl-warning">
+                          Notify backup: {backupName}
+                        </p>
+                      ) : null}
+                      <button
+                        onClick={() => window.open(`/supervisor/controller/${controller.id}/monitor`, '_blank')}
+                        className="mt-2 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-pearl-primary hover:text-pearl-primary transition-colors"
+                      >
+                        View Performance
+                      </button>
+                    </td>
+                  </tr>
+                )})}
+              </tbody>
+            </table>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 relative">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+          <h3 className="text-lg font-semibold text-slate-500 mb-2">Action Required</h3>
+          <p className="text-sm text-slate-500 mb-4">
+            Controllers needing immediate attention
+          </p>
+          {notifications.length > 0 ? (
+            <FatigueNotification 
+              notifications={notifications} 
+              onDismiss={handleDismissNotification}
+              onNotifyBackup={handleNotifyBackup}
+              onDelayMonitoring={handleDelayMonitoring}
+              availableBackups={getAvailableBackups}
+              assignedBackups={assignedBackups}
+              showDropdownForController={showDropdownForController}
+              selectedBackupForController={selectedBackupForController}
+              onBackupSelection={handleBackupSelection}
+              onConfirmBackup={handleConfirmBackup}
+              onDismissByController={handleDismissNotificationByController}
+            />
+          ) : (
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+              <p className="text-sm text-slate-500">No controllers require immediate action.</p>
+            </div>
+          )}
+        </div>
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 relative">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-slate-200">Latest supervisor actions</h3>
+            <h3 className="text-lg font-semibold text-slate-500">Latest supervisor actions</h3>
             <div className="relative">
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
-                className="rounded-lg border border-slate-700/70 bg-slate-900/60 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-600 hover:text-slate-100"
+                className="rounded-lg border border-slate-700 bg-slate-900/55 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-slate-700 hover:text-slate-100"
               >
                 Export
               </button>
@@ -490,16 +461,16 @@ export function SupervisorDashboard() {
                     className="fixed inset-0 z-10"
                     onClick={() => setShowExportMenu(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 z-20 rounded-xl border border-slate-700 bg-slate-900 shadow-lg overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 z-20 rounded-xl border border-slate-700 bg-slate-950/70 shadow-lg overflow-hidden">
                     <button
                       onClick={handleExportPDF}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-800"
+                      className="w-full px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50"
                     >
                       Export as PDF
                     </button>
                     <button
                       onClick={handleExportExcel}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-200 hover:bg-slate-800 border-t border-slate-700"
+                      className="w-full px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50 border-t border-slate-700"
                     >
                       Export as Excel
                     </button>
@@ -510,19 +481,19 @@ export function SupervisorDashboard() {
           </div>
           <div className="relative mt-4">
             <ul
-              className={`space-y-4 text-sm text-slate-300 ${
+              className={`space-y-4 text-sm text-slate-500 ${
                 actionsPanelExpanded && allActions.length > 2 ? 'max-h-[600px] overflow-y-auto pr-2' : ''
               }`}
             >
               {allActions.length > 0 ? (
                 (actionsPanelExpanded ? allActions : allActions.slice(0, 2)).map((action) => (
-                  <li key={action.id} className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-4">
+                  <li key={action.id} className="rounded-xl border border-slate-700 bg-slate-900/55 p-4">
                     <p className="text-xs uppercase tracking-wide text-slate-500">
                       {new Date(action.createdAt).toLocaleString()}
                     </p>
                     <p className="mt-2 text-slate-100">{action.message}</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      Controller ID: <span className="font-mono text-slate-300">{action.controllerId}</span>
+                      Controller ID: <span className="font-mono text-slate-500">{action.controllerId}</span>
                     </p>
                   </li>
                 ))
@@ -534,7 +505,7 @@ export function SupervisorDashboard() {
               <div className="absolute bottom-2 right-2">
                 <button
                   onClick={() => setActionsPanelExpanded(true)}
-                  className="rounded-lg bg-slate-800/90 backdrop-blur-sm p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700/90 transition-colors shadow-lg"
+                  className="rounded-lg bg-slate-900/50/90 backdrop-blur-sm p-2 text-slate-500 hover:text-slate-500 hover:bg-slate-900/60/90 transition-colors shadow-lg"
                   title="Show all actions"
                 >
                   <svg
@@ -558,7 +529,7 @@ export function SupervisorDashboard() {
               <div className="mt-4 flex justify-center">
                 <button
                   onClick={() => setActionsPanelExpanded(false)}
-                  className="rounded-lg border border-slate-700/70 px-3 py-1.5 text-xs font-semibold text-slate-400 hover:border-slate-600 hover:text-slate-200"
+                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-slate-700 hover:text-slate-500"
                 >
                   Show less
                 </button>
@@ -570,14 +541,14 @@ export function SupervisorDashboard() {
 
       <section className="grid gap-6 lg:grid-cols-[3fr_2fr]">
         {false && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-            <h3 className="text-lg font-semibold text-slate-200">Voice Monitoring</h3>
-            <p className="mt-2 text-sm text-slate-400">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+            <h3 className="text-lg font-semibold text-slate-500">Voice Monitoring</h3>
+            <p className="mt-2 text-sm text-slate-500">
               Current voice fatigue status for all controllers
             </p>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-800 text-sm">
-                <thead className="bg-slate-900/70 text-slate-400">
+                <thead className="bg-slate-900/65 text-slate-500">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Controller</th>
                     <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Status</th>
@@ -585,7 +556,7 @@ export function SupervisorDashboard() {
                     <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Updated</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/70 text-slate-200">
+                <tbody className="divide-y divide-slate-800/70 text-slate-500">
                   {voiceSummaryRows.length > 0 ? (
                     voiceSummaryRows.map(({ controller, sample }) => (
                       <tr key={controller.id}>
@@ -602,10 +573,10 @@ export function SupervisorDashboard() {
                             {sample?.alertTriggered ? '⚠️ Alert' : '✓ Normal'}
                           </span>
                         </td>
-                        <td className={`px-4 py-3 font-semibold ${sample?.alertTriggered ? 'text-pearl-warning' : 'text-slate-200'}`}>
+                        <td className={`px-4 py-3 font-semibold ${sample?.alertTriggered ? 'text-pearl-warning' : 'text-slate-500'}`}>
                           {sample ? `${Math.round(sample.fatigueIndex * 100)}%` : '—'}
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-400">
+                        <td className="px-4 py-3 text-xs text-slate-500">
                           {sample
                             ? new Date(sample.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                             : '—'}
@@ -625,10 +596,10 @@ export function SupervisorDashboard() {
           </div>
         )}
         {false && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-            <h3 className="text-lg font-semibold text-slate-200">Voice alert feed</h3>
-            <p className="mt-2 text-sm text-slate-400">Most recent reminders sent to controllers (hydration/stretch) or escalated to supervisors.</p>
-            <ul className="mt-4 space-y-4 text-sm text-slate-300">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+            <h3 className="text-lg font-semibold text-slate-500">Voice alert feed</h3>
+            <p className="mt-2 text-sm text-slate-500">Most recent reminders sent to controllers (hydration/stretch) or escalated to supervisors.</p>
+            <ul className="mt-4 space-y-4 text-sm text-slate-500">
               {voiceAlerts.length === 0 ? (
                 <li className="text-xs text-slate-500">No voice alerts logged.</li>
               ) : (
@@ -654,52 +625,64 @@ export function SupervisorDashboard() {
       </section>
 
       {sectorRosters ? (
-        <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-          <h3 className="text-lg font-semibold text-slate-200">Sector roster overview</h3>
-          <p className="mt-2 text-sm text-slate-400">
-            Backup pools are maintained per sector to guarantee immediate coverage when a controller exceeds fatigue
-            thresholds.
-          </p>
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
-            {sectorRosters.map((sector) => (
-              <div key={sector.id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{sector.id}</p>
-                <p className="mt-2 text-lg font-semibold text-slate-100">{sector.name}</p>
-                <p className="text-xs text-slate-500">{sector.shiftGroup}</p>
-                {sector.description ? (
-                  <p className="mt-2 text-xs text-slate-400">{sector.description}</p>
-                ) : null}
-                <div className="mt-4 space-y-2 text-sm text-slate-300">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Primary</p>
-                    <ul className="mt-1 space-y-1">
-                      {sector.primary.map((controller) => (
-                        <li key={controller.id} className="flex items-center justify-between">
-                          <span>{controller.name}</span>
-                          <span className="text-xs text-slate-500">{controller.shiftGroup}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Backup</p>
-                    <ul className="mt-1 space-y-1">
-                      {sector.backup.length > 0 ? (
-                        sector.backup.map((controller) => (
+        <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-500">Sector roster overview</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                Backup pools are maintained per sector to guarantee immediate coverage when a controller exceeds fatigue
+                thresholds.
+              </p>
+            </div>
+            <button
+              onClick={() => setSectorRosterExpanded(!sectorRosterExpanded)}
+              className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 hover:border-slate-600 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30 transition-colors"
+            >
+              {sectorRosterExpanded ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
+          {sectorRosterExpanded && (
+            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+              {sectorRosters.map((sector) => (
+                <div key={sector.id} className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{sector.id}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-100">{sector.name}</p>
+                  <p className="text-xs text-slate-500">{sector.shiftGroup}</p>
+                  {sector.description ? (
+                    <p className="mt-2 text-xs text-slate-500">{sector.description}</p>
+                  ) : null}
+                  <div className="mt-4 space-y-2 text-sm text-slate-500">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Primary</p>
+                      <ul className="mt-1 space-y-1">
+                        {sector.primary.map((controller) => (
                           <li key={controller.id} className="flex items-center justify-between">
                             <span>{controller.name}</span>
-                            <span className="text-xs text-slate-500">Standby</span>
+                            <span className="text-xs text-slate-500">{controller.shiftGroup}</span>
                           </li>
-                        ))
-                      ) : (
-                        <li className="text-xs text-slate-500">No backup assigned.</li>
-                      )}
-                    </ul>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Backup</p>
+                      <ul className="mt-1 space-y-1">
+                        {sector.backup.length > 0 ? (
+                          sector.backup.map((controller) => (
+                            <li key={controller.id} className="flex items-center justify-between">
+                              <span>{controller.name}</span>
+                              <span className="text-xs text-slate-500">Standby</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-xs text-slate-500">No backup assigned.</li>
+                        )}
+                      </ul>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       ) : null}
       </div>

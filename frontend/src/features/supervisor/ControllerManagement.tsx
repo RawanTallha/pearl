@@ -29,11 +29,11 @@ const initialDraft: DraftController = {
 export function ControllerManagement() {
   const { data: fetchedControllers } = useQuery({
     queryKey: ['controllers'],
-    queryFn: fetchControllers,
+    queryFn: () => fetchControllers(),
   })
   const { data: sectorCatalog } = useQuery({
     queryKey: ['sector-catalog'],
-    queryFn: fetchSectorCatalog,
+    queryFn: () => fetchSectorCatalog(),
   })
 
   const [controllers, setControllers] = useState<ControllerProfile[]>([])
@@ -102,35 +102,35 @@ export function ControllerManagement() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 rounded-2xl bg-slate-900/80 p-6 md:flex-row md:items-center md:justify-between">
+      <header className="flex flex-col gap-4 rounded-2xl bg-slate-900/70 p-6 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Controllers management panel</p>
           <h2 className="mt-2 text-2xl font-semibold text-slate-100">Maintain roster and baseline folders</h2>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-slate-500">
             Add controllers, update their profiles, and manage roster assignments. Prototype actions update the local
             dataset to illustrate the workflow.
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-950 px-6 py-4 text-right">
+        <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-6 py-4 text-right">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Roster size</p>
           <p className="mt-2 text-4xl font-semibold text-slate-100">{controllerCount}</p>
           <p className="text-xs text-slate-500">Baseline folders auto-create on first login.</p>
         </div>
       </header>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+      <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-200">Active controllers</h3>
-            <p className="text-sm text-slate-400">
+            <h3 className="text-lg font-semibold text-slate-500">Active controllers</h3>
+            <p className="text-sm text-slate-500">
               Each controller entry stores profile, baseline, and shift data inside `/database/controllers/{'{ID}'}`.
             </p>
           </div>
         </div>
 
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-800">
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-700">
           <table className="min-w-full divide-y divide-slate-800/80 text-sm">
-            <thead className="bg-slate-900/70 text-slate-400">
+            <thead className="bg-slate-900/65 text-slate-500">
               <tr>
                 <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Controller</th>
                 <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Sector</th>
@@ -140,21 +140,21 @@ export function ControllerManagement() {
                 <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Baseline readiness</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80 text-slate-200">
+            <tbody className="divide-y divide-slate-800/80 text-slate-500">
               {rosterSummary.map((entry) => (
-                <tr key={entry.id} className="hover:bg-slate-900/40">
+                <tr key={entry.id} className="hover:bg-slate-900/50">
                   <td className="px-5 py-4">
                     <p className="font-semibold text-slate-100">{entry.name}</p>
                     <p className="text-xs text-slate-500">{entry.id}</p>
                   </td>
-                  <td className="px-5 py-4 text-sm text-slate-300">
+                  <td className="px-5 py-4 text-sm text-slate-500">
                     <p>{entry.sector}</p>
                     <p className="text-xs uppercase tracking-wide text-slate-500">{entry.rosterRole}</p>
                   </td>
-                  <td className="px-5 py-4 text-sm text-slate-300">{entry.experienceYears} years</td>
-                  <td className="px-5 py-4 text-sm text-slate-300">{entry.age}</td>
-                  <td className="px-5 py-4 text-sm text-slate-300">{entry.note}</td>
-                  <td className="px-5 py-4 text-sm text-slate-300">Auto-sync on login</td>
+                  <td className="px-5 py-4 text-sm text-slate-500">{entry.experienceYears} years</td>
+                  <td className="px-5 py-4 text-sm text-slate-500">{entry.age}</td>
+                  <td className="px-5 py-4 text-sm text-slate-500">{entry.note}</td>
+                  <td className="px-5 py-4 text-sm text-slate-500">Auto-sync on login</td>
                 </tr>
               ))}
             </tbody>
@@ -163,8 +163,8 @@ export function ControllerManagement() {
       </section>
 
       {isFormOpen ? (
-        <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/40">
-          <h3 className="text-lg font-semibold text-slate-200">Create new controller profile</h3>
+        <div className="rounded-3xl border border-slate-700 bg-slate-900/70 p-6 shadow-xl shadow-black/40">
+          <h3 className="text-lg font-semibold text-slate-500">Create new controller profile</h3>
           <form onSubmit={handleSubmit} className="mt-6 grid gap-4 md:grid-cols-2">
             <label className="flex flex-col gap-2 text-xs uppercase tracking-wide text-slate-500">
               Name
@@ -172,7 +172,7 @@ export function ControllerManagement() {
                 required
                 value={draft.name}
                 onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
               />
             </label>
             <label className="flex flex-col gap-2 text-xs uppercase tracking-wide text-slate-500">
@@ -182,7 +182,7 @@ export function ControllerManagement() {
                 value={draft.id}
                 onChange={(event) => setDraft((prev) => ({ ...prev, id: event.target.value }))}
                 placeholder="e.g., C_Sara_104"
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
               />
             </label>
             <label className="flex flex-col gap-2 text-xs uppercase tracking-wide text-slate-500">
@@ -192,7 +192,7 @@ export function ControllerManagement() {
                 min={0}
                 value={draft.experienceYears}
                 onChange={(event) => setDraft((prev) => ({ ...prev, experienceYears: Number(event.target.value) }))}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
               />
             </label>
             <label className="flex flex-col gap-2 text-xs uppercase tracking-wide text-slate-500">
@@ -201,7 +201,7 @@ export function ControllerManagement() {
                 type="number"
                 value={draft.yearOfBirth}
                 onChange={(event) => setDraft((prev) => ({ ...prev, yearOfBirth: Number(event.target.value) }))}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
               />
             </label>
             <label className="flex flex-col gap-2 text-xs uppercase tracking-wide text-slate-500">
@@ -211,7 +211,7 @@ export function ControllerManagement() {
                 onChange={(event) =>
                   setDraft((prev) => ({ ...prev, gender: event.target.value as ControllerProfile['gender'] }))
                 }
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
               >
                 <option>Female</option>
                 <option>Male</option>
@@ -224,7 +224,7 @@ export function ControllerManagement() {
                 value={draft.healthNotes}
                 onChange={(event) => setDraft((prev) => ({ ...prev, healthNotes: event.target.value }))}
                 rows={3}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
               />
             </label>
             <label className="flex flex-col gap-2 text-xs uppercase tracking-wide text-slate-500">
@@ -232,7 +232,7 @@ export function ControllerManagement() {
               <select
                 value={draft.sectorId}
                 onChange={(event) => setDraft((prev) => ({ ...prev, sectorId: event.target.value }))}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
               >
                 {sectorCatalog?.map((sector) => (
                   <option key={sector.id} value={sector.id}>
@@ -246,7 +246,7 @@ export function ControllerManagement() {
               <select
                 value={draft.rosterRole}
                 onChange={(event) => setDraft((prev) => ({ ...prev, rosterRole: event.target.value as RosterRole }))}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
               >
                 <option value="primary">Primary</option>
                 <option value="backup">Backup</option>
@@ -259,7 +259,7 @@ export function ControllerManagement() {
                   setDraft(initialDraft)
                   setIsFormOpen(false)
                 }}
-                className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 hover:border-slate-600 hover:text-slate-50"
+                className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-500 hover:border-slate-700 hover:text-slate-100"
               >
                 Cancel
               </button>

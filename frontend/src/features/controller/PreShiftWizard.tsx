@@ -1,19 +1,9 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { subscribeToSimulation } from '../../services/simulationService'
-import {
-  fetchBackupCandidate,
-  fetchSectorForController,
-  getSimulationFrame,
-} from '../../services/dataService'
-import type { FatigueSnapshot } from '../../types'
+import { useNavigate } from 'react-router-dom'
+import { fetchBackupCandidate, fetchSectorForController } from '../../services/dataService'
 import { useSessionStore } from '../../store/useSessionStore'
 
-const statusStyles: Record<FatigueSnapshot['status'], string> = {
-  Normal: 'bg-pearl-success/20 text-pearl-success border border-pearl-success/40',
-  Monitor: 'bg-pearl-warning/20 text-pearl-warning border border-pearl-warning/40',
-  'High Fatigue': 'bg-pearl-danger/20 text-pearl-danger border border-pearl-danger/40',
-}
 
 type StepStatus = 'pending' | 'active' | 'completed'
 
@@ -26,10 +16,10 @@ interface StepData {
 }
 
 export function PreShiftWizard() {
+  const navigate = useNavigate()
   const controller = useSessionStore((state) => state.controller)
   const [stepIndex, setStepIndex] = useState(0)
   const [complete, setComplete] = useState(false)
-  const [snapshot, setSnapshot] = useState<FatigueSnapshot | null>(null)
   
   // Face Scan state
   const [faceScanStatus, setFaceScanStatus] = useState<'idle' | 'capturing' | 'completed'>('idle')
@@ -47,13 +37,20 @@ export function PreShiftWizard() {
   const [reactionStatus, setReactionStatus] = useState<'idle' | 'waiting' | 'active' | 'completed'>('idle')
   const [reactionTimes, setReactionTimes] = useState<number[]>([])
   const [currentColor, setCurrentColor] = useState<'blue' | 'red'>('blue')
-  const [gameStartTime, setGameStartTime] = useState<number>(0)
   const [reactionResult, setReactionResult] = useState<string>('')
   const reactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   // Health Check-In state
   const [sleepHours, setSleepHours] = useState<string>('')
   const [healthCheckResult, setHealthCheckResult] = useState<string>('')
+  
+  // Shift Start Popup state
+  const [showShiftStartPopup, setShowShiftStartPopup] = useState(false)
+  const [currentShift, setCurrentShift] = useState(1) // 1-4 shifts per day
+  const [shiftTimeRemaining, setShiftTimeRemaining] = useState(120 * 60) // 2 hours in seconds
+  const [breakTimeRemaining, setBreakTimeRemaining] = useState(0) // Break time in seconds
+  const [isOnBreak, setIsOnBreak] = useState(false)
+  const shiftTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const { data: sector } = useQuery({
     queryKey: ['sector', controller?.id],
@@ -67,48 +64,33 @@ export function PreShiftWizard() {
     enabled: Boolean(controller?.id),
   })
 
-  useEffect(() => {
-    if (!controller) return
-
-    const initial = getSimulationFrame(0).find((frame) => frame.controllerId === controller.id) ?? null
-    setSnapshot(initial)
-
-    return subscribeToSimulation((frames) => {
-      const match = frames.find((frame) => frame.controllerId === controller.id)
-      if (match) {
-        setSnapshot(match)
-      }
-    })
-  }, [controller])
-
-  const baselineFactors = useMemo(() => controller?.baselineFactors, [controller])
 
   const sequence: StepData[] = [
     {
       id: 'face',
       title: 'Face Scan',
-      description: '20-second capture tracks blink and yawn frequency using the calibrated camera field of view. (Optional - can be skipped)',
+      description: 'Quick 20-second scan to set your baseline. Optional - you can skip this step.',
       status: stepIndex === 0 ? 'active' : stepIndex > 0 ? 'completed' : 'pending',
       result: faceScanResult,
     },
     {
       id: 'voice',
       title: 'Voice Sample',
-      description: 'Read an English sentence aloud to measure vocal sensitivity and voice-related fatigue factors for baseline generation.',
+      description: 'Read a simple sentence to help us understand your voice patterns.',
       status: stepIndex === 1 ? 'active' : stepIndex > 1 ? 'completed' : 'pending',
       result: voiceSampleResult,
     },
     {
       id: 'reaction',
-      title: 'Reaction-Time Challenge',
-      description: 'Click when red appears. Test ends after 2-3 clicks or maximum 30 seconds.',
+      title: 'Reaction Test',
+      description: 'Click when you see red. Just 2-3 clicks, takes less than 30 seconds.',
       status: stepIndex === 2 ? 'active' : stepIndex > 2 ? 'completed' : 'pending',
       result: reactionResult,
     },
     {
       id: 'health',
-      title: 'Health Check-in',
-      description: 'Quick self-report for sleep hours to calculate the Pre-Shift baseline.',
+      title: 'Quick Check-in',
+      description: 'Tell us how many hours you slept to personalize your baseline.',
       status: stepIndex === 3 ? 'active' : stepIndex > 3 ? 'completed' : 'pending',
       result: healthCheckResult,
     },
@@ -214,7 +196,7 @@ export function PreShiftWizard() {
       }
       
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
+        new Blob(audioChunksRef.current, { type: 'audio/wav' })
         // Simulate processing
         setVoiceSampleStatus('completed')
         setVoiceSampleResult('Speech cadence aligned at 126 wpm. Tone stability variance ±0.03.')
@@ -268,7 +250,6 @@ export function PreShiftWizard() {
     setReactionStatus('waiting')
     setReactionTimes([])
     const startTime = Date.now()
-    setGameStartTime(startTime)
     gameStartTimeRef.current = startTime
     reactionStartTimeRef.current = startTime
     
@@ -362,8 +343,103 @@ export function PreShiftWizard() {
       setStepIndex((prev) => prev + 1)
     } else {
       setComplete(true)
+      // Show shift start popup after completion
+      setTimeout(() => {
+        setShowShiftStartPopup(true)
+        // Initialize first shift timer
+        setShiftTimeRemaining(120 * 60) // 2 hours
+        setCurrentShift(1)
+        setIsOnBreak(false)
+        startShiftTimer()
+      }, 500)
     }
   }
+
+  // Shift timer logic
+  const startShiftTimer = useCallback(() => {
+    // Clear any existing timer
+    if (shiftTimerRef.current) {
+      clearInterval(shiftTimerRef.current)
+    }
+
+    // Start unified countdown timer that handles both shift and break
+    shiftTimerRef.current = setInterval(() => {
+      setIsOnBreak((prevIsOnBreak) => {
+        if (prevIsOnBreak) {
+          // Currently on break - count down break time
+          let shouldStayOnBreak = true
+          setBreakTimeRemaining((prevBreakTime) => {
+            const newBreakTime = Math.max(0, prevBreakTime - 1)
+            if (newBreakTime === 0 && prevBreakTime > 0) {
+              // Break just ended, start next shift
+              shouldStayOnBreak = false
+              setCurrentShift((prevShift) => {
+                const nextShift = Math.min(prevShift + 1, 4)
+                if (nextShift <= 4) {
+                  setShiftTimeRemaining(120 * 60) // Reset to 2 hours for next shift
+                }
+                return nextShift
+              })
+            }
+            return newBreakTime
+          })
+          return shouldStayOnBreak
+        } else {
+          // Currently working on shift - count down shift time
+          let shouldStayOnShift = true
+          setShiftTimeRemaining((prevShiftTime) => {
+            const newShiftTime = Math.max(0, prevShiftTime - 1)
+            if (newShiftTime === 0 && prevShiftTime > 0) {
+              // Shift just ended, start break
+              shouldStayOnShift = false
+              // Break duration: 40-60 minutes (randomized for flexibility)
+              const breakDuration = 40 * 60 + Math.random() * 20 * 60 // 40-60 minutes
+              setBreakTimeRemaining(Math.floor(breakDuration))
+            }
+            return newShiftTime
+          })
+          return shouldStayOnShift
+        }
+      })
+    }, 1000)
+  }, [])
+
+  const handleStartShift = () => {
+    // Navigate to dashboard, popup stays open
+    navigate('/controller', { replace: false })
+  }
+  
+  const handleClosePopup = () => {
+    setShowShiftStartPopup(false)
+    // Clear timer when popup is closed
+    if (shiftTimerRef.current) {
+      clearInterval(shiftTimerRef.current)
+      shiftTimerRef.current = null
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // Cleanup timer on unmount and when popup closes
+  useEffect(() => {
+    if (!showShiftStartPopup && shiftTimerRef.current) {
+      clearInterval(shiftTimerRef.current)
+      shiftTimerRef.current = null
+    }
+    return () => {
+      if (shiftTimerRef.current) {
+        clearInterval(shiftTimerRef.current)
+      }
+    }
+  }, [showShiftStartPopup])
 
   const handleSleepHoursSubmit = () => {
     const hours = parseFloat(sleepHours)
@@ -389,92 +465,15 @@ export function PreShiftWizard() {
 
   return (
     <div className="space-y-8">
-      {/* Current Fatigue Indicator */}
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-          <h2 className="text-lg font-semibold text-slate-200">Current Fatigue Indicator</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            PEARL continuously monitors your biometric and operational cues to provide a calming reminder only to you.
-          </p>
-          {snapshot ? (
-            <div className="mt-6 flex flex-col gap-4">
-              <div className={`w-fit rounded-full px-4 py-1 text-sm font-semibold ${statusStyles[snapshot.status]}`}>
-                {snapshot.status === 'Normal' ? '🟢 Normal' : snapshot.status === 'Monitor' ? '🟡 Monitor' : '🔴 High Fatigue'}
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Personal readiness</p>
-                <p className="mt-2 text-4xl font-semibold text-slate-100">{snapshot.readinessLevel.toFixed(2)}</p>
-                <p className="mt-2 text-sm text-slate-400">Your readiness is recalibrated against the morning baseline.</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {snapshot.factors.map((factor) => (
-                  <div key={factor.label} className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">{factor.label}</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-100">{factor.value}</p>
-                    <p className="text-xs text-slate-500">
-                      Trend:{' '}
-                      {factor.trend === 'up' ? '↑' : factor.trend === 'down' ? '↓' : '→'} {factor.trend ?? 'steady'}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              {snapshot.recommendation &&
-              snapshot.recommendation !== 'Encourage hydration' &&
-              snapshot.recommendation !== 'Stable after advisory' ? (
-                <p className="rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-3 text-sm text-slate-300">
-                  {snapshot.recommendation}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <div className="mt-6 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-8 text-sm text-slate-400">
-              Awaiting first capture from the Edge AI module…
-            </div>
-          )}
-        </div>
-
-        {/* Baseline Snapshot */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-          <h2 className="text-lg font-semibold text-slate-200">Baseline snapshot</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Quick reminder of your refreshed baseline after the pre-shift readiness sequence.
-          </p>
-          <div className="mt-6 space-y-5">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Baseline readiness</p>
-              <p className="mt-2 text-4xl font-semibold text-slate-100">{controller.baselineReadiness.toFixed(2)}</p>
-            </div>
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
-                <dt className="text-xs uppercase tracking-wide text-slate-500">Blink rate</dt>
-                <dd className="mt-2 text-lg font-semibold text-slate-100">{baselineFactors?.blinkRate ?? 0} / min</dd>
-              </div>
-              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
-                <dt className="text-xs uppercase tracking-wide text-slate-500">Speech rate</dt>
-                <dd className="mt-2 text-lg font-semibold text-slate-100">{baselineFactors?.speechRate ?? 0} wpm</dd>
-              </div>
-              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
-                <dt className="text-xs uppercase tracking-wide text-slate-500">Response delay</dt>
-                <dd className="mt-2 text-lg font-semibold text-slate-100">{baselineFactors?.responseDelay ?? 0}s</dd>
-              </div>
-              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
-                <dt className="text-xs uppercase tracking-wide text-slate-500">Tone stability</dt>
-                <dd className="mt-2 text-lg font-semibold text-slate-100">
-                  {(baselineFactors?.toneStability ?? 0).toFixed(2)}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-      </section>
+     
 
       {/* Sector Assignment */}
       {sector ? (
-        <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+        <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
           <div className="flex flex-col gap-4 md:flex-row md:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-slate-200">Sector assignment</h3>
-              <p className="text-sm text-slate-400">
+              <h3 className="text-lg font-semibold text-slate-500">Sector assignment</h3>
+              <p className="text-sm text-slate-500">
                 Your operational clearance is limited to <span className="text-pearl-primary">{sector.name}</span>. Shift
                 group: {sector.shiftGroup}.
               </p>
@@ -488,7 +487,7 @@ export function PreShiftWizard() {
                 </p>
               </div>
             ) : (
-              <div className="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-slate-300">
+              <div className="rounded-xl border border-slate-700 bg-slate-900/55 px-4 py-3 text-sm text-slate-500">
                 Backup assignment is under review. Contact the supervisor if a substitution is required.
               </div>
             )}
@@ -499,31 +498,19 @@ export function PreShiftWizard() {
         </section>
       ) : null}
 
-      {/* Shift Focus Reminder */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-        <h3 className="text-lg font-semibold text-slate-200">Shift focus reminder</h3>
-        <p className="mt-3 text-sm text-slate-400">
-          During the shift, PEARL keeps the fatigue indicator subtle. Your dashboard will always show the latest color
-          cue and supportive reminders while keeping all numerical metrics private to you.
-        </p>
-        <ul className="mt-4 list-disc space-y-2 pl-6 text-sm text-slate-400">
-          <li>🟢 Normal — stay the course, hydration reminders appear every 50 minutes.</li>
-          <li>🟡 Monitor — take two mindful breaths, and consider a standing stretch.</li>
-          <li>🔴 High Fatigue — your supervisor receives a gentle advisory to coordinate a micro-break.</li>
-        </ul>
-      </section>
+    
 
       {/* Pre-Shift Readiness Sequence */}
       <div className="space-y-6">
-        <header className="flex flex-col gap-4 rounded-2xl bg-slate-900/80 p-6 md:flex-row md:items-center md:justify-between">
+        <header className="flex flex-col gap-4 rounded-2xl bg-slate-900/70 p-6 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Pre-shift readiness sequence</p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-100">Good morning, {controller.name}</h2>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 text-sm text-slate-500">
               Follow the four-step refresh to keep the baseline calibrated before your duty window.
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-700 bg-slate-950 px-6 py-4 text-right">
+          <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-6 py-4 text-right">
             <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Readiness</p>
             <p className="mt-2 text-4xl font-semibold text-pearl-primary">
               {readinessScore ? readinessScore.toFixed(2) : '--'}
@@ -542,8 +529,8 @@ export function PreShiftWizard() {
                   key={item.id}
                   className={`rounded-2xl border p-4 transition ${
                     isActive
-                      ? 'border-pearl-primary bg-slate-900/70 shadow-lg shadow-sky-500/20'
-                      : 'border-slate-800 bg-slate-950/60'
+                      ? 'border-pearl-primary bg-slate-900/65 shadow-lg shadow-sky-500/20'
+                      : 'border-slate-700 bg-slate-900/60'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -556,19 +543,19 @@ export function PreShiftWizard() {
             })}
           </aside>
 
-          <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+          <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-semibold text-slate-100">{step.title}</h3>
               <p className="text-sm text-slate-500">
                 Step {stepIndex + 1} of {sequence.length}
               </p>
             </div>
-            <p className="mt-3 text-sm text-slate-400">{step.description}</p>
+            <p className="mt-3 text-sm text-slate-500">{step.description}</p>
 
             {/* Face Scan Step */}
             {stepIndex === 0 && (
               <div className="mt-6 space-y-4">
-                <p className="text-sm text-slate-400 italic">
+                <p className="text-sm text-slate-500 italic">
                   Note: Face scan is currently optional. You can skip this step and proceed to the next activity.
                 </p>
                 {faceScanStatus === 'idle' && (
@@ -581,7 +568,7 @@ export function PreShiftWizard() {
                 )}
                 {faceScanStatus === 'capturing' && (
                   <div className="space-y-4">
-                    <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 aspect-video">
+                    <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/55 aspect-video">
                       <video
                         ref={videoRef}
                         muted
@@ -591,19 +578,19 @@ export function PreShiftWizard() {
                         aria-label="Live camera preview"
                       />
                       {!faceScanStreamRef.current && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-slate-400">
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 text-slate-500">
                           <p>Initializing camera...</p>
                         </div>
                       )}
                     </div>
-                    <p className="text-sm text-slate-300">Capturing... Please hold still for 20 seconds.</p>
+                    <p className="text-sm text-slate-500">Capturing... Please hold still for 20 seconds.</p>
                     <button
                       onClick={() => {
                         cleanupFaceScan()
                         setFaceScanStatus('idle')
                         setFaceScanResult('')
                       }}
-                      className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
+                      className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-500 hover:text-slate-100"
                     >
                       Cancel
                     </button>
@@ -611,15 +598,15 @@ export function PreShiftWizard() {
                 )}
                 {faceScanStatus === 'completed' && (
                   <div className="mt-6 space-y-4">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-300">
+                    <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5 text-sm text-slate-500">
                       <p className="font-medium text-pearl-primary">Latest capture</p>
-                      <p className="mt-2 text-slate-200">{faceScanResult}</p>
+                      <p className="mt-2 text-slate-500">{faceScanResult}</p>
                       <p className="mt-3 text-xs text-slate-500">
                         Media is processed locally and discarded right after the features are refreshed.
                       </p>
                     </div>
                     {faceScanStreamRef.current && (
-                      <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 aspect-video">
+                      <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/55 aspect-video">
                         <video
                           ref={videoRef}
                           muted
@@ -638,12 +625,12 @@ export function PreShiftWizard() {
             {/* Voice Sample Step */}
             {stepIndex === 1 && (
               <div className="mt-6 space-y-4">
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-                  <p className="text-sm font-semibold text-slate-200">Please read the following sentence aloud:</p>
+                <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+                  <p className="text-sm font-semibold text-slate-500">Please read the following sentence aloud:</p>
                   <p className="mt-3 text-lg text-pearl-primary">
                     &quot;The quick brown fox jumps over the lazy dog while maintaining clear communication protocols.&quot;
                   </p>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="mt-2 text-xs text-slate-500">
                     This sentence helps measure vocal sensitivity and voice-related fatigue factors.
                   </p>
                 </div>
@@ -659,7 +646,7 @@ export function PreShiftWizard() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <div className="h-4 w-4 animate-pulse rounded-full bg-pearl-danger"></div>
-                      <p className="text-sm text-slate-300">Recording... Please read the sentence above.</p>
+                      <p className="text-sm text-slate-500">Recording... Please read the sentence above.</p>
                     </div>
                     <button
                       onClick={stopVoiceSample}
@@ -670,9 +657,9 @@ export function PreShiftWizard() {
                   </div>
                 )}
                 {voiceSampleStatus === 'completed' && (
-                  <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-300">
+                  <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/55 p-5 text-sm text-slate-500">
                     <p className="font-medium text-pearl-primary">Voice sample processed</p>
-                    <p className="mt-2 text-slate-200">{voiceSampleResult}</p>
+                    <p className="mt-2 text-slate-500">{voiceSampleResult}</p>
                   </div>
                 )}
               </div>
@@ -681,7 +668,7 @@ export function PreShiftWizard() {
             {/* Reaction Time Challenge Step */}
             {stepIndex === 2 && (
               <div className="mt-6 space-y-4">
-                <p className="text-sm text-slate-300">
+                <p className="text-sm text-slate-500">
                   When the screen turns red, click the button as quickly as possible. The test will end after 2-3 clicks or maximum 30 seconds.
                 </p>
                 {reactionStatus === 'idle' && (
@@ -698,7 +685,7 @@ export function PreShiftWizard() {
                       className={`flex h-64 items-center justify-center rounded-2xl border-4 transition-colors ${
                         currentColor === 'red'
                           ? 'border-pearl-danger bg-pearl-danger/20'
-                          : 'border-slate-700 bg-slate-900/60'
+                          : 'border-slate-700 bg-slate-900/55'
                       }`}
                     >
                       <p className={`text-2xl font-bold ${currentColor === 'red' ? 'text-pearl-danger' : 'text-slate-500'}`}>
@@ -716,9 +703,9 @@ export function PreShiftWizard() {
                   </div>
                 )}
                 {reactionStatus === 'completed' && (
-                  <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-300">
+                  <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/55 p-5 text-sm text-slate-500">
                     <p className="font-medium text-pearl-primary">Reaction challenge completed</p>
-                    <p className="mt-2 text-slate-200">{reactionResult}</p>
+                    <p className="mt-2 text-slate-500">{reactionResult}</p>
                   </div>
                 )}
               </div>
@@ -727,8 +714,8 @@ export function PreShiftWizard() {
             {/* Health Check-In Step */}
             {stepIndex === 3 && (
               <div className="mt-6 space-y-4">
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-                  <p className="text-sm font-semibold text-slate-200">How many hours did you sleep?</p>
+                <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+                  <p className="text-sm font-semibold text-slate-500">How many hours did you sleep?</p>
                   <div className="mt-4 flex gap-3">
                     <input
                       type="number"
@@ -738,7 +725,7 @@ export function PreShiftWizard() {
                       value={sleepHours}
                       onChange={(e) => setSleepHours(e.target.value)}
                       placeholder="Enter hours (e.g., 7.5)"
-                      className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-slate-100 placeholder:text-slate-500 focus:border-pearl-primary focus:outline-none"
+                      className="flex-1 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2 text-slate-100 placeholder:text-slate-500 focus:border-pearl-primary focus:outline-none"
                     />
                     <button
                       onClick={handleSleepHoursSubmit}
@@ -749,9 +736,9 @@ export function PreShiftWizard() {
                   </div>
                 </div>
                 {healthCheckResult && (
-                  <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-300">
+                  <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5 text-sm text-slate-500">
                     <p className="font-medium text-pearl-primary">Health check-in recorded</p>
-                    <p className="mt-2 text-slate-200">{healthCheckResult}</p>
+                    <p className="mt-2 text-slate-500">{healthCheckResult}</p>
                   </div>
                 )}
               </div>
@@ -781,6 +768,118 @@ export function PreShiftWizard() {
           </section>
         </div>
       </div>
+
+      {/* Shift Start Popup */}
+      {showShiftStartPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={handleClosePopup}>
+          <div className="relative w-full max-w-2xl rounded-2xl border-2 border-pearl-primary/60 bg-slate-900/95 p-8 shadow-2xl ring-2 ring-pearl-primary/30" onClick={(e) => e.stopPropagation()}>
+            {/* Close button */}
+            <button
+              onClick={handleClosePopup}
+              className="absolute right-4 top-4 rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="text-center">
+              <div className="mb-6 flex justify-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-pearl-primary/20">
+                  <span className="text-4xl">🚀</span>
+                </div>
+              </div>
+              
+              <h2 className="text-3xl font-semibold text-slate-100 mb-2">
+                {isOnBreak ? 'Break Time' : `Shift ${currentShift} - Let's Begin!`}
+              </h2>
+              
+              <p className="text-lg text-slate-300 mb-6">
+                {isOnBreak 
+                  ? 'Take a well-deserved break. Rest, hydrate, and recharge.'
+                  : currentShift === 1
+                  ? 'Welcome to your first shift! You\'re ready to start your work.'
+                  : `Starting shift ${currentShift} of 4. You've got this!`}
+              </p>
+
+              {/* Countdown Timer */}
+              <div className="mb-6">
+                <div className="inline-flex flex-col items-center rounded-2xl border-2 border-pearl-primary/40 bg-slate-800/80 px-8 py-6">
+                  <p className="text-sm uppercase tracking-wider text-slate-400 mb-2">
+                    {isOnBreak ? 'Break Time Remaining' : 'Shift Time Remaining'}
+                  </p>
+                  <p className="text-5xl font-mono font-bold text-pearl-primary">
+                    {formatTime(isOnBreak ? breakTimeRemaining : shiftTimeRemaining)}
+                  </p>
+                  <p className="mt-3 text-sm text-slate-400">
+                    {isOnBreak 
+                      ? 'Next shift starts automatically when break ends'
+                      : `Shift ${currentShift} of 4 • ${currentShift < 4 ? 'Break coming soon' : 'Final shift'}`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress Indicator */}
+              <div className="mb-6">
+                <div className="flex items-center justify-center gap-2">
+                  {[1, 2, 3, 4].map((shiftNum) => (
+                    <div
+                      key={shiftNum}
+                      className={`h-2 flex-1 rounded-full transition-all ${
+                        shiftNum < currentShift
+                          ? 'bg-pearl-success'
+                          : shiftNum === currentShift
+                          ? isOnBreak
+                            ? 'bg-pearl-warning animate-pulse'
+                            : 'bg-pearl-primary'
+                          : 'bg-slate-700'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className="mt-2 text-sm text-slate-400">
+                  {isOnBreak 
+                    ? `Break between shift ${currentShift - 1} and ${currentShift}`
+                    : `Working on shift ${currentShift} of 4`}
+                </p>
+              </div>
+
+              {/* Supportive Messages */}
+              <div className="mb-6 rounded-xl border border-slate-700 bg-slate-800/50 px-6 py-4">
+                <p className="text-sm text-slate-300">
+                  {isOnBreak
+                    ? '💧 Stay hydrated • 🧘 Take deep breaths • ⏸️ Rest your mind'
+                    : currentShift === 1
+                    ? '✨ You\'re well-prepared • 🎯 Stay focused • 💪 You\'ve got this'
+                    : '🔄 Keep the momentum • 🎯 Maintain focus • 💪 You\'re doing great'}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleStartShift}
+                  className="flex-1 rounded-xl bg-pearl-primary px-6 py-3 text-lg font-semibold text-slate-950 transition hover:bg-pearl-primary/90 shadow-lg"
+                >
+                  {isOnBreak ? 'Continue Break' : currentShift === 1 ? 'Start My First Shift' : `Start Shift ${currentShift}`}
+                </button>
+                <button
+                  onClick={handleClosePopup}
+                  className="rounded-xl border border-slate-700 bg-slate-800/50 px-6 py-3 text-lg font-semibold text-slate-300 transition hover:bg-slate-700/50"
+                >
+                  Close
+                </button>
+              </div>
+
+              <p className="mt-4 text-xs text-slate-400">
+                {isOnBreak 
+                  ? 'Take your time to rest. The next shift will begin automatically.'
+                  : 'PEARL will automatically track your shifts and breaks. You can close this and continue to your dashboard.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

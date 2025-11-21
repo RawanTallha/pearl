@@ -1,11 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { subscribeToSimulation } from '../../services/simulationService'
-import {
-  fetchBackupCandidate,
-  fetchSectorForController,
-  getSimulationFrame,
-} from '../../services/dataService'
+import { fetchBackupCandidate, fetchSectorForController, fetchLiveFrame } from '../../services/dataService'
 import type { FatigueSnapshot } from '../../types'
 import { useSessionStore } from '../../store/useSessionStore'
 
@@ -34,15 +30,29 @@ export function ControllerDashboard() {
   useEffect(() => {
     if (!controller) return
 
-    const initial = getSimulationFrame(0).find((frame) => frame.controllerId === controller.id) ?? null
-    setSnapshot(initial)
+    let mounted = true
+    fetchLiveFrame()
+      .then((frames) => {
+        if (!mounted) return
+        const initial = frames.find((frame) => frame.controllerId === controller.id) ?? null
+        if (initial) {
+          setSnapshot(initial)
+        }
+      })
+      .catch((error) => console.error('Failed to load live frame', error))
 
-    return subscribeToSimulation((frames) => {
+    const unsubscribe = subscribeToSimulation((frames) => {
+      if (!mounted) return
       const match = frames.find((frame) => frame.controllerId === controller.id)
       if (match) {
         setSnapshot(match)
       }
     })
+
+    return () => {
+      mounted = false
+      unsubscribe()
+    }
   }, [controller])
 
   const baselineFactors = useMemo(() => controller?.baselineFactors, [controller])
@@ -53,25 +63,29 @@ export function ControllerDashboard() {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-          <h2 className="text-lg font-semibold text-slate-200">Current Fatigue Indicator</h2>
-          <p className="mt-1 text-sm text-slate-400">
+      {/* Current Fatigue Indicator - Merged with Baseline and Sector */}
+      <section className="grid gap-6 lg:grid-cols-3">
+        {/* Current Fatigue Indicator */}
+        <div className="lg:col-span-2 rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+          <h2 className="text-lg font-semibold text-slate-500">Current Fatigue Indicator</h2>
+          <p className="mt-1 text-sm text-slate-500">
             PEARL continuously monitors your biometric and operational cues to provide a calming reminder only to you.
           </p>
           {snapshot ? (
             <div className="mt-6 flex flex-col gap-4">
-              <div className={`w-fit rounded-full px-4 py-1 text-sm font-semibold ${statusStyles[snapshot.status]}`}>
+              <div className={`w-fit rounded-full px-6 py-2 text-base font-semibold ${statusStyles[snapshot.status]}`}>
                 {snapshot.status === 'Normal' ? '🟢 Normal' : snapshot.status === 'Monitor' ? '🟡 Monitor' : '🔴 High Fatigue'}
               </div>
+              
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Personal readiness</p>
                 <p className="mt-2 text-4xl font-semibold text-slate-100">{snapshot.readinessLevel.toFixed(2)}</p>
-                <p className="mt-2 text-sm text-slate-400">Your readiness is recalibrated against the morning baseline.</p>
+                <p className="mt-2 text-sm text-slate-500">Your readiness is recalibrated against the morning baseline.</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {snapshot.factors.map((factor) => (
-                  <div key={factor.label} className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-3">
+                  <div key={factor.label} className="rounded-xl border border-slate-700 bg-slate-900/65 p-3">
                     <p className="text-xs uppercase tracking-wide text-slate-500">{factor.label}</p>
                     <p className="mt-1 text-lg font-semibold text-slate-100">{factor.value}</p>
                     <p className="text-xs text-slate-500">
@@ -81,21 +95,24 @@ export function ControllerDashboard() {
                   </div>
                 ))}
               </div>
+
               {snapshot.recommendation ? (
-                <p className="rounded-xl border border-slate-700/80 bg-slate-900/60 px-4 py-3 text-sm text-slate-300">
+                <div className="rounded-xl border border-slate-700 bg-slate-900/55 px-4 py-3 text-sm text-slate-500">
                   {snapshot.recommendation}
-                </p>
+                </div>
               ) : null}
             </div>
           ) : (
-            <div className="mt-6 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-8 text-sm text-slate-400">
+            <div className="mt-6 rounded-xl border border-slate-700 bg-slate-900/55 px-4 py-8 text-center text-sm text-slate-500">
               Awaiting first capture from the Edge AI module…
             </div>
           )}
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-          <h2 className="text-lg font-semibold text-slate-200">Baseline snapshot</h2>
-          <p className="mt-1 text-sm text-slate-400">
+
+        {/* Baseline Snapshot */}
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+          <h2 className="text-lg font-semibold text-slate-500">Baseline snapshot</h2>
+          <p className="mt-1 text-sm text-slate-500">
             Quick reminder of your refreshed baseline after the pre-shift readiness sequence.
           </p>
           <div className="mt-6 space-y-5">
@@ -104,19 +121,19 @@ export function ControllerDashboard() {
               <p className="mt-2 text-4xl font-semibold text-slate-100">{controller.baselineReadiness.toFixed(2)}</p>
             </div>
             <dl className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
+              <div className="rounded-xl border border-slate-700 bg-slate-900/65 p-4">
                 <dt className="text-xs uppercase tracking-wide text-slate-500">Blink rate</dt>
                 <dd className="mt-2 text-lg font-semibold text-slate-100">{baselineFactors?.blinkRate ?? 0} / min</dd>
               </div>
-              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
+              <div className="rounded-xl border border-slate-700 bg-slate-900/65 p-4">
                 <dt className="text-xs uppercase tracking-wide text-slate-500">Speech rate</dt>
                 <dd className="mt-2 text-lg font-semibold text-slate-100">{baselineFactors?.speechRate ?? 0} wpm</dd>
               </div>
-              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
+              <div className="rounded-xl border border-slate-700 bg-slate-900/65 p-4">
                 <dt className="text-xs uppercase tracking-wide text-slate-500">Response delay</dt>
                 <dd className="mt-2 text-lg font-semibold text-slate-100">{baselineFactors?.responseDelay ?? 0}s</dd>
               </div>
-              <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 p-4">
+              <div className="rounded-xl border border-slate-700 bg-slate-900/65 p-4">
                 <dt className="text-xs uppercase tracking-wide text-slate-500">Tone stability</dt>
                 <dd className="mt-2 text-lg font-semibold text-slate-100">
                   {(baselineFactors?.toneStability ?? 0).toFixed(2)}
@@ -127,12 +144,13 @@ export function ControllerDashboard() {
         </div>
       </section>
 
+      {/* Sector Assignment */}
       {sector ? (
-        <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+        <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
           <div className="flex flex-col gap-4 md:flex-row md:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-slate-200">Sector assignment</h3>
-              <p className="text-sm text-slate-400">
+              <h3 className="text-lg font-semibold text-slate-500">Sector assignment</h3>
+              <p className="text-sm text-slate-500">
                 Your operational clearance is limited to <span className="text-pearl-primary">{sector.name}</span>. Shift
                 group: {sector.shiftGroup}.
               </p>
@@ -146,7 +164,7 @@ export function ControllerDashboard() {
                 </p>
               </div>
             ) : (
-              <div className="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-slate-300">
+              <div className="rounded-xl border border-slate-700 bg-slate-900/55 px-4 py-3 text-sm text-slate-500">
                 Backup assignment is under review. Contact the supervisor if a substitution is required.
               </div>
             )}
@@ -156,19 +174,6 @@ export function ControllerDashboard() {
           ) : null}
         </section>
       ) : null}
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
-        <h3 className="text-lg font-semibold text-slate-200">Shift focus reminder</h3>
-        <p className="mt-3 text-sm text-slate-400">
-          During the shift, PEARL keeps the fatigue indicator subtle. Your dashboard will always show the latest color
-          cue and supportive reminders while keeping all numerical metrics private to you.
-        </p>
-        <ul className="mt-4 list-disc space-y-2 pl-6 text-sm text-slate-400">
-          <li>🟢 Normal — stay the course, hydration reminders appear every 50 minutes.</li>
-          <li>🟡 Monitor — take two mindful breaths, and consider a standing stretch.</li>
-          <li>🔴 High Fatigue — your supervisor receives a gentle advisory to coordinate a micro-break.</li>
-        </ul>
-      </section>
     </div>
   )
 }

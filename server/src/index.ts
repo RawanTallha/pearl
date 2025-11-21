@@ -3,9 +3,20 @@ import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { nanoid } from 'nanoid'
-import { controllers, sectors, supervisor, shiftSummaries, supervisorActions as seedActions } from './data/mockData.js'
-import { advanceFrame, getCurrentFrame, resetSimulation } from './services/simulation.js'
-import type { ControllerProfile, SectorRoster, SupervisorAction } from './types.js'
+import {
+  initializeDatabase,
+  listControllers,
+  findControllerById,
+  getSectorRosterForController,
+  getSectorRosterById,
+  listSectorsWithRosters,
+  getShiftSummaryReport,
+  listSupervisorActions,
+  insertSupervisorAction,
+  getBackupCandidate,
+} from './db/index.js'
+import { advanceFrame, getCurrentFrame, resetSimulation, refreshSimulationFrames } from './services/simulation.js'
+import type { SupervisorAction } from './types.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -22,9 +33,19 @@ app.use(
 )
 app.use(express.json())
 
-let actions: SupervisorAction[] = [...seedActions]
-const sectorMap = new Map<string, SectorRoster>(sectors.map((sector) => [sector.id, sector]))
-const controllerMap = new Map<string, ControllerProfile>(controllers.map((controller) => [controller.id, controller]))
+try {
+  initializeDatabase()
+  refreshSimulationFrames()
+} catch (error) {
+  console.error('Failed to initialize database', error)
+  process.exit(1)
+}
+
+const supervisorProfile = {
+  id: process.env.SUPERVISOR_ID ?? 'S_Sara_001',
+  name: process.env.SUPERVISOR_NAME ?? 'Sara',
+  password: process.env.SUPERVISOR_PASSWORD ?? 'pearl-secure',
+}
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000
 const simulationInterval = Number(process.env.SIM_INTERVAL_MS ?? 5000)
@@ -39,10 +60,12 @@ setInterval(() => {
 }, simulationInterval)
 
 app.get('/health', (_req, res) => {
+  const controllerCount = listControllers().length
+  const sectorCount = listSectorsWithRosters().length
   res.json({
     status: 'ok',
-    controllers: controllers.length,
-    sectors: sectors.length,
+    controllers: controllerCount,
+    sectors: sectorCount,
     timestamp: new Date().toISOString(),
   })
 })
@@ -52,11 +75,10 @@ app.post('/auth/controller', (req, res) => {
   if (!controllerId) {
     return res.status(400).json({ error: 'controllerId is required' })
   }
-  const profile = controllers.find((controller) => controller.id === controllerId)
+  const profile = findControllerById(controllerId)
   if (!profile) {
     return res.status(404).json({ error: 'Controller not found' })
   }
-  controllerMap.set(profile.id, profile)
   return res.json(profile)
 })
 
@@ -65,18 +87,20 @@ app.post('/auth/supervisor', (req, res) => {
   if (!supervisorId || !password) {
     return res.status(400).json({ error: 'supervisorId and password are required' })
   }
-  if (supervisorId !== supervisor.id || password !== supervisor.password) {
+  if (supervisorId !== supervisorProfile.id || password !== supervisorProfile.password) {
     return res.status(401).json({ error: 'Invalid credentials' })
   }
-  return res.json({ id: supervisor.id, name: supervisor.name })
+  return res.json({ id: supervisorProfile.id, name: supervisorProfile.name })
 })
 
-app.get('/controllers', (_req, res) => {
-  res.json(controllers)
+app.get('/controllers', (req, res) => {
+  const { sectorId } = req.query
+  const list = typeof sectorId === 'string' ? listControllers(sectorId) : listControllers()
+  res.json(list)
 })
 
 app.get('/controllers/:id', (req, res) => {
-  const controller = controllers.find((entry) => entry.id === req.params.id)
+  const controller = findControllerById(req.params.id)
   if (!controller) {
     return res.status(404).json({ error: 'Controller not found' })
   }
@@ -84,76 +108,25 @@ app.get('/controllers/:id', (req, res) => {
 })
 
 app.get('/controllers/:id/sector', (req, res) => {
-  const controller = controllerMap.get(req.params.id)
-  if (!controller) {
-    return res.status(404).json({ error: 'Controller not found' })
-  }
-  const sector = sectorMap.get(controller.sectorId)
+  const sector = getSectorRosterForController(req.params.id)
   if (!sector) {
-    return res.status(404).json({ error: 'Sector not found' })
+    return res.status(404).json({ error: 'Sector not found for controller' })
   }
   res.json(sector)
 })
 
 app.get('/controllers/:id/backup', (req, res) => {
-  const controller = controllerMap.get(req.params.id)
-  if (!controller) {
-    return res.status(404).json({ error: 'Controller not found' })
-  }
-  const sector = sectorMap.get(controller.sectorId)
-  if (!sector) {
-    return res.status(404).json({ error: 'Sector not found' })
-  }
-  const backup = sector.backup.find((candidate) => candidate.id !== controller.id)
+  const backup = getBackupCandidate(req.params.id)
   if (!backup) {
     return res.status(404).json({ error: 'No backup assigned' })
   }
   res.json(backup)
 })
 
-app.post('/controllers', (req, res) => {
-  const payload = req.body as Partial<ControllerProfile>
-  if (!payload.id || !payload.name || !payload.sectorId) {
-    return res.status(400).json({ error: 'id, name, and sectorId are required' })
-  }
-  const existing = controllers.find((controller) => controller.id === payload.id)
-  if (existing) {
-    return res.status(409).json({ error: 'Controller already exists' })
-  }
-  const sector = sectorMap.get(payload.sectorId)
-  if (!sector) {
-    return res.status(400).json({ error: 'Sector not found' })
-  }
-  const newController: ControllerProfile = {
-    id: payload.id,
-    name: payload.name,
-    experienceYears: payload.experienceYears ?? 0,
-    yearOfBirth: payload.yearOfBirth ?? 1995,
-    gender: payload.gender ?? 'Other',
-    active: true,
-    sectorId: sector.id,
-    sectorName: sector.name,
-    shiftGroup: sector.shiftGroup,
-    rosterRole: payload.rosterRole ?? 'primary',
-    baselineReadiness: 0.9,
-    baselineFactors: {
-      blinkRate: 17,
-      speechRate: 123,
-      responseDelay: 0.95,
-      toneStability: 0.92,
-    },
-  }
-  if (typeof payload.healthNotes === 'string' && payload.healthNotes.trim().length > 0) {
-    newController.healthNotes = payload.healthNotes
-  }
-  controllers.push(newController)
-  controllerMap.set(newController.id, newController)
-  if (newController.rosterRole === 'primary') {
-    sector.primary.push(newController)
-  } else {
-    sector.backup.push(newController)
-  }
-  res.status(201).json(newController)
+app.post('/controllers', (_req, res) => {
+  res
+    .status(501)
+    .json({ error: 'Controller onboarding is managed via the controllers_master.xlsx source of record.' })
 })
 
 app.get('/dashboard/live', (_req, res) => {
@@ -165,33 +138,25 @@ app.get('/dashboard/live', (_req, res) => {
 })
 
 app.get('/sectors', (_req, res) => {
-  res.json(sectors)
+  res.json(listSectorsWithRosters())
 })
 
 app.get('/sectors/:id', (req, res) => {
-  const sector = sectorMap.get(req.params.id)
+  const sector = getSectorRosterById(req.params.id)
   if (!sector) {
     return res.status(404).json({ error: 'Sector not found' })
   }
   res.json(sector)
 })
 
-app.get('/analytics/monthly', (_req, res) => {
-  res.json({
-    summaries: shiftSummaries,
-    insights: [
-      {
-        label: 'Night shifts show 34% higher fatigue on average. Recommend rotating controllers every 90 minutes.',
-      },
-      {
-        label: 'Hydration reminders reduce pause ratio spikes by 12% across afternoon shifts.',
-      },
-    ],
-  })
+app.get('/analytics/monthly', (req, res) => {
+  const controllerId = typeof req.query.controllerId === 'string' ? req.query.controllerId : undefined
+  const report = getShiftSummaryReport(controllerId)
+  res.json(report)
 })
 
 app.get('/actions', (_req, res) => {
-  res.json(actions)
+  res.json(listSupervisorActions())
 })
 
 app.post('/actions', (req, res) => {
@@ -206,7 +171,7 @@ app.post('/actions', (req, res) => {
     message: payload.message,
     createdAt: new Date().toISOString(),
   }
-  actions = [action, ...actions]
+  insertSupervisorAction(action)
   res.status(201).json(action)
 })
 

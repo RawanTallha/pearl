@@ -281,16 +281,16 @@ export function FatigueWeeklyReportPopup({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/50" onClick={onClose}>
       <div
-        className="h-full w-full max-w-2xl overflow-y-auto bg-slate-950 shadow-2xl"
+        className="h-full w-full max-w-2xl overflow-y-auto bg-slate-950/70 border-l-2 border-slate-600/60 shadow-2xl"
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-900/95 p-6 backdrop-blur-sm">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-700 bg-slate-900/80 p-6 backdrop-blur-sm">
           <h2 className="text-xl font-semibold text-slate-100">
             Fatigue report for {controllerName}
           </h2>
           <button
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            className="rounded-xl p-2 text-slate-500 hover:bg-slate-900/50 hover:text-slate-100"
             aria-label="Close"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -302,11 +302,11 @@ export function FatigueWeeklyReportPopup({
         <div className="p-6 space-y-6">
           {/* Section 1: Selected Week Details */}
           <div>
-            <h3 className="mb-4 text-lg font-semibold text-slate-200">
+            <h3 className="mb-4 text-lg font-semibold text-slate-500">
               Section 1: Selected Week Details (Week of {weekStart} to {weekEnd})
             </h3>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 mb-4">
-              <p className="text-sm text-slate-300">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5 mb-4">
+              <p className="text-sm text-slate-500">
                 <strong className="text-slate-100">{controllerName}</strong> approached the fatigue threshold{' '}
                 <strong className="text-pearl-warning">{reportData.weekCount} time{reportData.weekCount !== 1 ? 's' : ''}</strong> during
                 this week.
@@ -316,38 +316,38 @@ export function FatigueWeeklyReportPopup({
             {reportData.weekNearFatigueEvents.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-800 text-sm">
-                  <thead className="bg-slate-900/80 text-slate-400">
+                  <thead className="bg-slate-900/70 text-slate-500">
                     <tr>
                       <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Date</th>
                       <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Fatigue Score</th>
                       <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Notes</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                  <tbody className="divide-y divide-slate-800/80 text-slate-500">
                     {reportData.weekNearFatigueEvents.map((event: { date: string; fatigueScore: number; notes?: string }, index: number) => (
-                      <tr key={index} className="hover:bg-slate-900/40">
+                      <tr key={index} className="hover:bg-slate-900/50">
                         <td className="px-4 py-3">{event.date}</td>
                         <td className="px-4 py-3 font-semibold text-pearl-warning">{event.fatigueScore}%</td>
-                        <td className="px-4 py-3 text-xs text-slate-400">{event.notes || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{event.notes || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-                <p className="text-sm text-slate-400">No near-fatigue events recorded during this week.</p>
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+                <p className="text-sm text-slate-500">No near-fatigue events recorded during this week.</p>
               </div>
             )}
           </div>
 
           {/* Section 2: Full Range Summary */}
           <div>
-            <h3 className="mb-4 text-lg font-semibold text-slate-200">
+            <h3 className="mb-4 text-lg font-semibold text-slate-500">
               Section 2: Summary for Full Selected Range ({timeRange.from.toLocaleDateString()} to {timeRange.to.toLocaleDateString()})
             </h3>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 mb-4">
-              <div className="space-y-2 text-sm text-slate-300">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5 mb-4">
+              <div className="space-y-2 text-sm text-slate-500">
                 <p>
                   <strong className="text-slate-100">Total near-fatigue events in full range:</strong>{' '}
                   <strong className="text-pearl-warning">{reportData.fullRangeCount}</strong>
@@ -358,7 +358,7 @@ export function FatigueWeeklyReportPopup({
                 </p>
                 <p>
                   <strong className="text-slate-100">Average fatigue score:</strong>{' '}
-                  <strong className="text-slate-200">{reportData.avgFatigueScore}%</strong>
+                  <strong className="text-slate-500">{reportData.avgFatigueScore}%</strong>
                 </p>
               </div>
             </div>
@@ -366,38 +366,38 @@ export function FatigueWeeklyReportPopup({
             {reportData.fullRangeNearFatigueEvents.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-800 text-sm">
-                  <thead className="bg-slate-900/80 text-slate-400">
+                  <thead className="bg-slate-900/70 text-slate-500">
                     <tr>
                       <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Date</th>
                       <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Fatigue Score</th>
                       <th className="px-4 py-3 text-left font-medium uppercase tracking-wider">Notes</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                  <tbody className="divide-y divide-slate-800/80 text-slate-500">
                     {reportData.fullRangeNearFatigueEvents.map((event: { date: string; fatigueScore: number; notes?: string }, index: number) => (
-                      <tr key={index} className="hover:bg-slate-900/40">
+                      <tr key={index} className="hover:bg-slate-900/50">
                         <td className="px-4 py-3">{event.date}</td>
                         <td className="px-4 py-3 font-semibold text-pearl-warning">{event.fatigueScore}%</td>
-                        <td className="px-4 py-3 text-xs text-slate-400">{event.notes || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{event.notes || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-                <p className="text-sm text-slate-400">No near-fatigue events recorded during the full selected range.</p>
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+                <p className="text-sm text-slate-500">No near-fatigue events recorded during the full selected range.</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Footer with actions */}
-        <div className="sticky bottom-0 border-t border-slate-800 bg-slate-900/95 p-6 backdrop-blur-sm">
+        <div className="sticky bottom-0 border-t border-slate-700 bg-slate-900/80 p-6 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <button
               onClick={onClose}
-              className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:border-slate-600 hover:text-slate-50"
+              className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-slate-700 hover:text-slate-100"
             >
               Close
             </button>

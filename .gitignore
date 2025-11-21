@@ -1,0 +1,16 @@
+# Dependency directories
+node_modules/
+server/node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+
+# Local databases
+server/data/*.db
+*.sqlite
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+

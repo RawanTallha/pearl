@@ -2,17 +2,81 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: #0f172a;
+@layer base {
+  :root {
+    color-scheme: dark;
+    font-family: 'Inter', 'Neue Haas Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --pearl-shell: #111b2c;
+    --pearl-sky: #1c2741;
+    --pearl-ink: #f7f9ff;
+    --pearl-muted: #b1c8dc;
+    --pearl-primary: #4985e0;
+    --pearl-primary-soft: rgba(139, 147, 245, 0.15);
+    --pearl-rose: #f7c3aa;
+    --pearl-stroke: rgba(177, 190, 220, 0.35);
+    --pearl-surface: rgba(31, 40, 62, 0.94);
+    --pearl-surface-soft: rgba(26, 34, 52, 0.86);
+    --pearl-surface-muted: rgba(22, 28, 45, 0.75);
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(139, 147, 245, 0.15), transparent 45%),
+      radial-gradient(circle at 80% 0%, rgba(247, 195, 170, 0.18), transparent 50%),
+      linear-gradient(180deg, var(--pearl-shell), #182339, var(--pearl-sky));
+    color: var(--pearl-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
 }
 
-body {
-  @apply bg-slate-950 text-slate-100 min-h-screen;
-}
+@layer components {
+  .pearl-shell {
+    @apply mx-auto w-full max-w-[1800px] px-4 py-10 sm:px-6 lg:px-12 xl:px-16 2xl:max-w-[2000px];
+  }
 
-#root {
-  @apply min-h-screen;
+  .pearl-panel {
+    @apply rounded-[32px] border;
+    background: var(--pearl-surface);
+    border-color: var(--pearl-stroke);
+    color: var(--pearl-ink);
+    box-shadow: 0 25px 80px rgba(6, 10, 24, 0.55);
+    backdrop-filter: blur(20px);
+  }
+
+  .pearl-panel-muted {
+    @apply rounded-[28px] border;
+    background: var(--pearl-surface-soft);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--pearl-ink);
+    box-shadow: 0 18px 60px rgba(6, 10, 24, 0.4);
+    backdrop-filter: blur(18px);
+  }
+
+  .pearl-pill {
+    @apply inline-flex items-center gap-2 rounded-full px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em];
+    border: 1px solid var(--pearl-stroke);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--pearl-muted);
+  }
+
+  .pearl-nav {
+    @apply flex flex-col gap-2;
+  }
+
+  .pearl-nav a {
+    @apply rounded-2xl px-4 py-2 text-sm font-medium transition;
+    color: var(--pearl-muted);
+    background: transparent;
+  }
+
+  .pearl-nav a:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--pearl-ink);
+  }
 }
 

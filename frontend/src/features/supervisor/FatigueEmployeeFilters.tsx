@@ -88,7 +88,7 @@ export function FatigueEmployeeFilters({
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4 md:flex-row md:items-center md:justify-between">
       {/* Time Range Filter - Simplified */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <label className="text-xs uppercase tracking-[0.25em] text-slate-500">Time Range</label>
@@ -97,14 +97,14 @@ export function FatigueEmployeeFilters({
             type="date"
             value={fromDate}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFromDate(e.target.value)}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+            className="rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-1.5 text-xs text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
           />
           <span className="text-xs text-slate-500">to</span>
           <input
             type="date"
             value={toDate}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToDate(e.target.value)}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+            className="rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-1.5 text-xs text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
           />
           <button
             onClick={handleApplyDateRange}
@@ -122,7 +122,7 @@ export function FatigueEmployeeFilters({
           <button
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex min-w-[180px] items-center justify-between rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 hover:border-slate-600 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+            className="flex min-w-[180px] items-center justify-between rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs text-slate-100 hover:border-slate-700 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
           >
             <span>{getControllerSummary()}</span>
             <svg
@@ -137,12 +137,12 @@ export function FatigueEmployeeFilters({
 
           {isDropdownOpen && (
             <div 
-              className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-800 bg-slate-900 shadow-xl"
+              className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-700 bg-slate-950/70 shadow-xl"
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="max-h-64 overflow-y-auto p-2">
                 {/* Select All / Deselect All */}
-                <div className="mb-2 flex gap-2 border-b border-slate-800 pb-2">
+                <div className="mb-2 flex gap-2 border-b border-slate-700 pb-2">
                   <button
                     type="button"
                     onClick={handleSelectAll}
@@ -150,7 +150,7 @@ export function FatigueEmployeeFilters({
                       e.preventDefault()
                       e.stopPropagation()
                     }}
-                    className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700"
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-900/50 px-2 py-1 text-xs text-slate-500 hover:bg-slate-900/60"
                   >
                     Select All
                   </button>
@@ -161,7 +161,7 @@ export function FatigueEmployeeFilters({
                       e.preventDefault()
                       e.stopPropagation()
                     }}
-                    className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700"
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-900/50 px-2 py-1 text-xs text-slate-500 hover:bg-slate-900/60"
                   >
                     Deselect All
                   </button>
@@ -172,15 +172,15 @@ export function FatigueEmployeeFilters({
                   {controllers.map((controller) => (
                     <label
                       key={controller.id}
-                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-800"
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-900/50"
                     >
                       <input
                         type="checkbox"
                         checked={selectedControllerIds.includes(controller.id)}
                         onChange={() => handleControllerToggle(controller.id)}
-                        className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-pearl-primary focus:ring-2 focus:ring-pearl-primary/30"
+                        className="h-4 w-4 rounded border-slate-700 bg-slate-900/50 text-pearl-primary focus:ring-2 focus:ring-pearl-primary/30"
                       />
-                      <span className="text-xs text-slate-200">{controller.name}</span>
+                      <span className="text-xs text-slate-500">{controller.name}</span>
                     </label>
                   ))}
                 </div>

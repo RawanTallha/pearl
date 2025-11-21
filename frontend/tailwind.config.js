@@ -5,13 +5,13 @@ export default {
     extend: {
       colors: {
         pearl: {
-          primary: '#38bdf8',
-          accent: '#f97316',
-          surface: '#111827',
-          'surface-light': '#1f2937',
-          success: '#22c55e',
-          warning: '#facc15',
-          danger: '#ef4444',
+          primary: ': #4985e0;',
+          accent: '#f7c3aa',
+          surface: '#1a243d',
+          'surface-light': '#24304a',
+          success: '#4cd9b9',
+          warning: '#f8d06a',
+          danger: '#f77e7e',
         },
       },
     },

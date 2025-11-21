@@ -1,5 +1,7 @@
- import { useMemo, useRef } from 'react'
+import { useMemo, useRef } from 'react'
+import type { MouseEvent } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import type { DotProps } from 'recharts'
 import type { ControllerProfile, ShiftSummary } from '../../types'
 
 interface FatigueEmployeeChartProps {
@@ -27,8 +29,8 @@ const COLORS = [
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 shadow-lg">
-        <p className="mb-2 text-sm font-semibold text-slate-200">{label}</p>
+      <div className="rounded-xl border border-slate-700 bg-slate-950/70 p-3 shadow-lg">
+        <p className="mb-2 text-sm font-semibold text-slate-500">{label}</p>
         {payload.map((entry: any, index: number) => (
           <div
             key={index}
@@ -114,8 +116,8 @@ export function FatigueEmployeeChart({
 
   if (chartData.length === 0 || visibleControllers.length === 0) {
     return (
-      <div className="flex h-80 w-full items-center justify-center rounded-xl border border-slate-800 bg-slate-900/60">
-        <p className="text-sm text-slate-400">
+      <div className="flex h-80 w-full items-center justify-center rounded-xl border border-slate-700 bg-slate-900/55">
+        <p className="text-sm text-slate-500">
           {visibleControllers.length === 0 ? 'No controllers selected' : 'No data available for the selected time range'}
         </p>
       </div>
@@ -142,13 +144,12 @@ export function FatigueEmployeeChart({
                 name={controller.name}
                 stroke={color}
                 strokeWidth={2}
-                dot={(props: any) => {
+                dot={(props: DotProps & { payload?: Record<string, unknown> }) => {
                   const { cx, cy, payload } = props
-                  const value = payload[controller.id]
-                  
-                  // Don't render if no value
+                  const value = payload ? (payload[controller.id] as number | null | undefined) : null
+
                   if (value === null || value === undefined) {
-                    return null
+                    return <></>
                   }
 
                   return (
@@ -158,9 +159,9 @@ export function FatigueEmployeeChart({
                       r={4}
                       fill={color}
                       cursor="pointer"
-                      onClick={(e: React.MouseEvent<SVGCircleElement>) => {
-                        e.stopPropagation()
-                        const date = payload.date as string
+                      onClick={(event: MouseEvent<SVGCircleElement>) => {
+                        event.stopPropagation()
+                        const date = payload?.date as string | undefined
                         if (date) {
                           handlePointClick(controller.id, date)
                         }
@@ -168,18 +169,6 @@ export function FatigueEmployeeChart({
                       className="hover:opacity-80 transition-opacity"
                     />
                   )
-                }}
-                activeDot={{
-                  r: 6,
-                  cursor: 'pointer',
-                  fill: color,
-                  onClick: (data: any) => {
-                    const payload = data.payload || data
-                    const date = payload.date as string
-                    if (date) {
-                      handlePointClick(controller.id, date)
-                    }
-                  },
                 }}
                 connectNulls
               />

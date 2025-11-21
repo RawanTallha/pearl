@@ -1,19 +1,29 @@
-import { simulationFrames } from '../data/mockData.js';
+import { generateLiveSnapshotFrames } from '../db/index.js';
+let frames = [];
 let index = 0;
-export function getCurrentFrame() {
-    if (simulationFrames.length === 0) {
-        return [];
+function ensureFrames() {
+    if (frames.length === 0) {
+        frames = generateLiveSnapshotFrames();
     }
-    return simulationFrames[index % simulationFrames.length] ?? [];
+}
+export function refreshSimulationFrames() {
+    frames = generateLiveSnapshotFrames();
+    index = 0;
+}
+export function getCurrentFrame() {
+    ensureFrames();
+    if (frames.length === 0)
+        return [];
+    return frames[index % frames.length] ?? [];
 }
 export function advanceFrame() {
-    if (simulationFrames.length === 0) {
+    ensureFrames();
+    if (frames.length === 0)
         return [];
-    }
-    index = (index + 1) % simulationFrames.length;
+    index = (index + 1) % frames.length;
     return getCurrentFrame();
 }
 export function resetSimulation() {
-    index = 0;
+    refreshSimulationFrames();
 }
 //# sourceMappingURL=simulation.js.map

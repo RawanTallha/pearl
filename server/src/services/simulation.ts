@@ -1,24 +1,34 @@
 import type { FatigueSnapshot } from '../types.js'
-import { simulationFrames } from '../data/mockData.js'
+import { generateLiveSnapshotFrames } from '../db/index.js'
 
+let frames: FatigueSnapshot[][] = []
 let index = 0
 
-export function getCurrentFrame(): FatigueSnapshot[] {
-  if (simulationFrames.length === 0) {
-    return []
+function ensureFrames() {
+  if (frames.length === 0) {
+    frames = generateLiveSnapshotFrames()
   }
-  return simulationFrames[index % simulationFrames.length] ?? []
+}
+
+export function refreshSimulationFrames() {
+  frames = generateLiveSnapshotFrames()
+  index = 0
+}
+
+export function getCurrentFrame(): FatigueSnapshot[] {
+  ensureFrames()
+  if (frames.length === 0) return []
+  return frames[index % frames.length] ?? []
 }
 
 export function advanceFrame(): FatigueSnapshot[] {
-  if (simulationFrames.length === 0) {
-    return []
-  }
-  index = (index + 1) % simulationFrames.length
+  ensureFrames()
+  if (frames.length === 0) return []
+  index = (index + 1) % frames.length
   return getCurrentFrame()
 }
 
 export function resetSimulation() {
-  index = 0
+  refreshSimulationFrames()
 }
 

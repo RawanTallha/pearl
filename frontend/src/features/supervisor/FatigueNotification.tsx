@@ -10,18 +10,48 @@ interface Notification {
 interface FatigueNotificationProps {
   notifications: Notification[]
   onDismiss: (id: string) => void
+  onNotifyBackup: (controllerId: string) => void
+  onDelayMonitoring: (controllerId: string) => void
+  availableBackups: (sectorId: string) => ControllerProfile[]
+  assignedBackups: Map<string, string>
+  showDropdownForController: string | null
+  selectedBackupForController: Map<string, string>
+  onBackupSelection: (controllerId: string, backupId: string) => void
+  onConfirmBackup: (controllerId: string) => void
+  onDismissByController?: (controllerId: string) => void
 }
 
-export function FatigueNotification({ notifications, onDismiss }: FatigueNotificationProps) {
+export function FatigueNotification({ 
+  notifications, 
+  onDismiss, 
+  onNotifyBackup, 
+  onDelayMonitoring,
+  availableBackups,
+  assignedBackups,
+  showDropdownForController,
+  selectedBackupForController,
+  onBackupSelection,
+  onConfirmBackup,
+  onDismissByController
+}: FatigueNotificationProps) {
   if (notifications.length === 0) return null
 
   return (
-    <div className="fixed right-6 top-6 z-50 space-y-3">
+    <div className="space-y-4">
       {notifications.map((notification) => (
         <NotificationItem
           key={notification.id}
           notification={notification}
           onDismiss={onDismiss}
+          onNotifyBackup={onNotifyBackup}
+          onDelayMonitoring={onDelayMonitoring}
+          availableBackups={availableBackups}
+          assignedBackups={assignedBackups}
+          showDropdownForController={showDropdownForController}
+          selectedBackupForController={selectedBackupForController}
+          onBackupSelection={onBackupSelection}
+          onConfirmBackup={onConfirmBackup}
+          onDismissByController={onDismissByController}
         />
       ))}
     </div>
@@ -31,28 +61,66 @@ export function FatigueNotification({ notifications, onDismiss }: FatigueNotific
 interface NotificationItemProps {
   notification: Notification
   onDismiss: (id: string) => void
+  onNotifyBackup: (controllerId: string) => void
+  onDelayMonitoring: (controllerId: string) => void
+  availableBackups: (sectorId: string) => ControllerProfile[]
+  assignedBackups: Map<string, string>
+  showDropdownForController: string | null
+  selectedBackupForController: Map<string, string>
+  onBackupSelection: (controllerId: string, backupId: string) => void
+  onConfirmBackup: (controllerId: string) => void
+  onDismissByController?: (controllerId: string) => void
 }
 
-function NotificationItem({ notification, onDismiss }: NotificationItemProps) {
+function NotificationItem({ 
+  notification, 
+  onDismiss, 
+  onNotifyBackup, 
+  onDelayMonitoring,
+  availableBackups,
+  assignedBackups,
+  showDropdownForController,
+  selectedBackupForController,
+  onBackupSelection,
+  onConfirmBackup,
+  onDismissByController
+}: NotificationItemProps) {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
     // Trigger slide-in animation
     setIsVisible(true)
+    // No auto-dismiss - notification stays until action is taken
+  }, [notification.id])
 
-    // Auto-dismiss after 8 seconds
-    const timer = setTimeout(() => {
-      setIsVisible(false)
-      // Wait for animation to complete before removing
-      setTimeout(() => onDismiss(notification.id), 300)
-    }, 8000)
-
-    return () => clearTimeout(timer)
-  }, [notification.id, onDismiss])
-
-  const handleClose = () => {
+  const handleActionTaken = () => {
     setIsVisible(false)
-    setTimeout(() => onDismiss(notification.id), 300)
+    setTimeout(() => {
+      onDismiss(notification.id)
+      // Also dismiss by controller ID if handler is provided
+      if (onDismissByController) {
+        onDismissByController(notification.controller.id)
+      }
+    }, 300)
+  }
+
+  const availableBackupList = availableBackups(notification.controller.sectorId)
+  const isDropdownOpen = showDropdownForController === notification.controller.id
+  const selectedBackupId = selectedBackupForController.get(notification.controller.id)
+  const hasAssignedBackup = assignedBackups.has(notification.controller.id)
+
+  const handleNotifyBackup = () => {
+    onNotifyBackup(notification.controller.id)
+  }
+
+  const handleDelayMonitoring = () => {
+    onDelayMonitoring(notification.controller.id)
+    handleActionTaken()
+  }
+
+  const handleConfirmBackup = () => {
+    onConfirmBackup(notification.controller.id)
+    handleActionTaken()
   }
 
   return (
@@ -61,47 +129,88 @@ function NotificationItem({ notification, onDismiss }: NotificationItemProps) {
         isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
       }`}
     >
-      <div className="w-80 rounded-2xl border border-slate-800 bg-slate-950/95 p-4 shadow-xl backdrop-blur-sm">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-sm font-semibold text-slate-100">
+      <div className="rounded-2xl border-2 border-pearl-danger/60 bg-slate-900/80 p-6 shadow-2xl ring-2 ring-pearl-danger/30">
+        <div className="mb-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-slate-100 mb-1">
                 {notification.controller.name} is showing high fatigue
-              </span>
+              </h3>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-mono font-semibold text-pearl-danger">
+                  {notification.snapshot.score.toFixed(2)}
+                </span>
+                <span className="text-xs text-pearl-danger font-semibold">High Fatigue</span>
+              </div>
+              {notification.snapshot.recommendation && (
+                <p className="mt-2 text-sm text-slate-400">{notification.snapshot.recommendation}</p>
+              )}
             </div>
-            <div className="mb-2">
-              <span className="text-2xl font-mono font-semibold text-pearl-danger">
-                {notification.snapshot.score.toFixed(2)}
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">Immediate attention recommended.</p>
           </div>
-          <button
-            onClick={handleClose}
-            className="ml-3 flex-shrink-0 rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
-            aria-label="Close notification"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+        </div>
+
+        {!hasAssignedBackup && (
+          <>
+            {!isDropdownOpen ? (
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleNotifyBackup}
+                  className="w-full rounded-xl bg-pearl-danger/20 px-4 py-3 text-sm font-semibold text-pearl-danger hover:bg-pearl-danger/30 transition-colors"
+                >
+                  Notify Backup Controller
+                </button>
+                <button
+                  onClick={handleDelayMonitoring}
+                  className="w-full rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-300 hover:border-slate-600 hover:bg-slate-800/50 transition-colors"
+                >
+                  Delay and monitor 10 minutes
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <select
+                  value={selectedBackupId || ''}
+                  onChange={(e) => onBackupSelection(notification.controller.id, e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
+                >
+                  <option value="">Select backup controller...</option>
+                  {availableBackupList.map((backup) => (
+                    <option key={backup.id} value={backup.id}>
+                      {backup.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedBackupId && (
+                  <button
+                    onClick={handleConfirmBackup}
+                    className="w-full rounded-xl bg-pearl-primary/20 px-4 py-3 text-sm font-semibold text-pearl-primary hover:bg-pearl-primary/30 transition-colors"
+                  >
+                    Confirm Backup Assignment
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+        {hasAssignedBackup && (
+          <div className="rounded-lg border border-pearl-success/40 bg-pearl-success/10 px-4 py-3">
+            <p className="text-sm text-pearl-success font-semibold">
+              ✓ Backup controller already assigned
+            </p>
+            <button
+              onClick={() => {
+                if (onDismissByController) {
+                  onDismissByController(notification.controller.id)
+                } else {
+                  handleActionTaken()
+                }
+              }}
+              className="mt-3 w-full rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 hover:border-slate-600 hover:bg-slate-800/50 transition-colors"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-        <div className="mt-3 rounded-lg border border-pearl-danger/40 bg-pearl-danger/10 px-3 py-2">
-          <p className="text-xs text-pearl-danger">
-            Status: <span className="font-semibold">High Fatigue</span>
-          </p>
-        </div>
+              Acknowledge
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

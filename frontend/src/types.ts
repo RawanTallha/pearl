@@ -59,7 +59,7 @@ export interface ShiftSummary {
 export interface SupervisorAction {
   id: string
   controllerId: string
-  action: 'suggest_break' | 'delay' | 'monitor'
+  action: 'suggest_break' | 'delay' | 'monitor' | 'backup_assigned'
   message: string
   createdAt: string
 }
