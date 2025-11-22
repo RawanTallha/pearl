@@ -3,15 +3,17 @@ import { create } from 'zustand'
 export type ShiftStatus = 'idle' | 'active' | 'break' | 'completed'
 
 interface ShiftState {
-  currentShift: number // 1-4
+  currentShift: number // 1-3 work periods
   status: ShiftStatus
   shiftTimeRemaining: number // in seconds
   breakTimeRemaining: number // in seconds
   shiftStartTime: number | null // timestamp when shift started
   breakStartTime: number | null // timestamp when break started
+  initialShiftDuration: number // initial shift duration when shift started
   initialBreakDuration: number // initial break duration when break started
   isOnBreak: boolean
   totalShifts: number
+  useAlternativeSchedule: boolean | null // null = not determined yet, true/false = schedule choice
   
   // Actions
   startShift: (shiftNumber: number) => void
@@ -19,29 +21,78 @@ interface ShiftState {
   endShift: () => void
   updateTimer: () => void
   resetShifts: () => void
+  getShiftDuration: (shiftNumber: number) => number
+  getBreakDuration: (breakNumber: number) => number
 }
 
-const SHIFT_DURATION = 2 * 60 * 60 // 2 hours in seconds
-const BREAK_DURATION_MIN = 40 * 60 // 40 minutes in seconds
-const BREAK_DURATION_MAX = 60 * 60 // 60 minutes in seconds
+// ATCO Schedule: ~5 hours work, ~3 hours breaks, max 2 hours without break
+// Structure: 2h work → 1.5h break → 2h work → 1.5h break → 1h work = 5h work, 3h break
+const SHIFT_DURATIONS = [
+  2 * 60 * 60,  // Shift 1: 2 hours
+  2 * 60 * 60,  // Shift 2: 2 hours
+  1 * 60 * 60,  // Shift 3: 1 hour (total: 5 hours)
+]
+
+const BREAK_DURATIONS = [
+  90 * 60,  // Break 1: 1.5 hours (90 minutes)
+  90 * 60,  // Break 2: 1.5 hours (90 minutes) (total: 3 hours)
+]
+
+// Alternative schedule (5:20 work, 2:40 break) - can be randomized
+const ALTERNATIVE_SHIFT_DURATIONS = [
+  2 * 60 * 60,      // Shift 1: 2 hours
+  2 * 60 * 60,      // Shift 2: 2 hours
+  1 * 60 * 60 + 20 * 60, // Shift 3: 1 hour 20 minutes (total: 5:20)
+]
+
+const ALTERNATIVE_BREAK_DURATIONS = [
+  80 * 60,  // Break 1: 1 hour 20 minutes
+  80 * 60,  // Break 2: 1 hour 20 minutes (total: 2:40)
+]
 
 export const useShiftStore = create<ShiftState>((set, get) => ({
   currentShift: 1,
   status: 'idle',
-  shiftTimeRemaining: SHIFT_DURATION,
+  shiftTimeRemaining: SHIFT_DURATIONS[0],
   breakTimeRemaining: 0,
   shiftStartTime: null,
   breakStartTime: null,
+  initialShiftDuration: SHIFT_DURATIONS[0],
   initialBreakDuration: 0,
   isOnBreak: false,
-  totalShifts: 4,
+  totalShifts: 3, // 3 work periods
+  useAlternativeSchedule: null, // Will be determined on first shift start
+
+  getShiftDuration: (shiftNumber: number) => {
+    const state = get()
+    // Determine schedule on first shift (30% chance for alternative)
+    if (state.useAlternativeSchedule === null) {
+      const useAlternative = Math.random() < 0.3 // 30% chance for alternative
+      set({ useAlternativeSchedule: useAlternative })
+    }
+    const durations = state.useAlternativeSchedule ? ALTERNATIVE_SHIFT_DURATIONS : SHIFT_DURATIONS
+    return durations[shiftNumber - 1] || durations[durations.length - 1]
+  },
+
+  getBreakDuration: (breakNumber: number) => {
+    const state = get()
+    // Use the same schedule choice as shifts
+    if (state.useAlternativeSchedule === null) {
+      const useAlternative = Math.random() < 0.3 // 30% chance for alternative
+      set({ useAlternativeSchedule: useAlternative })
+    }
+    const durations = state.useAlternativeSchedule ? ALTERNATIVE_BREAK_DURATIONS : BREAK_DURATIONS
+    return durations[breakNumber - 1] || durations[durations.length - 1]
+  },
 
   startShift: (shiftNumber: number) => {
     const now = Date.now()
+    const duration = get().getShiftDuration(shiftNumber)
     set({
       currentShift: shiftNumber,
       status: 'active',
-      shiftTimeRemaining: SHIFT_DURATION,
+      shiftTimeRemaining: duration,
+      initialShiftDuration: duration,
       shiftStartTime: now,
       breakStartTime: null,
       isOnBreak: false,
@@ -49,12 +100,11 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
   },
 
   startBreak: () => {
-    const { currentShift, totalShifts } = get()
+    const { currentShift } = get()
     const now = Date.now()
-    // Random break duration between 40-60 minutes
-    const breakDuration = Math.floor(
-      BREAK_DURATION_MIN + Math.random() * (BREAK_DURATION_MAX - BREAK_DURATION_MIN)
-    )
+    // Break number is currentShift (break after shift 1, break after shift 2)
+    const breakNumber = currentShift
+    const breakDuration = get().getBreakDuration(breakNumber)
     
     set({
       status: 'break',
@@ -85,9 +135,9 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
     const state = get()
     const now = Date.now()
 
-    if (state.status === 'active' && state.shiftStartTime) {
+    if (state.status === 'active' && state.shiftStartTime && state.initialShiftDuration > 0) {
       const elapsed = Math.floor((now - state.shiftStartTime) / 1000)
-      const remaining = Math.max(0, SHIFT_DURATION - elapsed)
+      const remaining = Math.max(0, state.initialShiftDuration - elapsed)
 
       if (remaining <= 0) {
         // Shift ended
@@ -122,12 +172,14 @@ export const useShiftStore = create<ShiftState>((set, get) => ({
     set({
       currentShift: 1,
       status: 'idle',
-      shiftTimeRemaining: SHIFT_DURATION,
+      shiftTimeRemaining: SHIFT_DURATIONS[0],
       breakTimeRemaining: 0,
       shiftStartTime: null,
       breakStartTime: null,
+      initialShiftDuration: SHIFT_DURATIONS[0],
       initialBreakDuration: 0,
       isOnBreak: false,
+      useAlternativeSchedule: null,
     })
   },
 }))

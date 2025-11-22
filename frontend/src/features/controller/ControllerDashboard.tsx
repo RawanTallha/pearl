@@ -92,12 +92,12 @@ export function ControllerDashboard() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-slate-500">
-                {isOnBreak ? 'Break Time' : `Shift ${currentShift} of 4`}
+                {isOnBreak ? 'Break Time' : `Work Period ${currentShift} of 3`}
               </h3>
               <p className="mt-1 text-sm text-slate-500">
                 {isOnBreak
                   ? 'Take a well-deserved break. Rest, hydrate, and recharge.'
-                  : `Working on shift ${currentShift} of 4`}
+                  : `Working on period ${currentShift} of 3`}
               </p>
             </div>
             <div className="rounded-2xl border-2 border-pearl-primary/40 bg-slate-800/80 px-8 py-6 text-center">
@@ -109,10 +109,10 @@ export function ControllerDashboard() {
               </p>
               <p className="mt-3 text-sm text-slate-400">
                 {isOnBreak
-                  ? 'Next shift starts automatically when break ends'
-                  : currentShift < 4
+                  ? 'Next work period starts automatically when break ends'
+                  : currentShift < 3
                   ? 'Break coming soon'
-                  : 'Final shift'}
+                  : 'Final work period'}
               </p>
             </div>
           </div>
@@ -120,7 +120,7 @@ export function ControllerDashboard() {
           {/* Progress Indicator */}
           <div className="mt-6">
             <div className="flex items-center justify-center gap-2">
-              {[1, 2, 3, 4].map((shiftNum) => (
+              {[1, 2, 3].map((shiftNum) => (
                 <div
                   key={shiftNum}
                   className={`h-2 flex-1 rounded-full transition-all ${
@@ -137,8 +137,8 @@ export function ControllerDashboard() {
             </div>
             <p className="mt-2 text-center text-sm text-slate-400">
               {isOnBreak
-                ? `Break between shift ${currentShift - 1} and ${currentShift}`
-                : `Working on shift ${currentShift} of 4`}
+                ? `Break between period ${currentShift - 1} and ${currentShift}`
+                : `Working on period ${currentShift} of 3`}
             </p>
           </div>
         </section>

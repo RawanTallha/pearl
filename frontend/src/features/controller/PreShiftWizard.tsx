@@ -49,7 +49,6 @@ export function PreShiftWizard() {
   // Use shift store
   const {
     currentShift,
-    status: shiftStatus,
     shiftTimeRemaining,
     breakTimeRemaining,
     isOnBreak,
@@ -682,8 +681,8 @@ export function PreShiftWizard() {
                 {isOnBreak 
                   ? 'Take a well-deserved break. Rest, hydrate, and recharge.'
                   : currentShift === 1
-                  ? 'Welcome to your first shift! You\'re ready to start your work.'
-                  : `Starting shift ${currentShift} of 4. You've got this!`}
+                  ? 'Welcome to your first work period! You\'re ready to start your work.'
+                  : `Starting work period ${currentShift} of 3. You've got this!`}
               </p>
 
               {/* Countdown Timer */}
@@ -698,7 +697,7 @@ export function PreShiftWizard() {
                   <p className="mt-3 text-sm text-slate-400">
                     {isOnBreak 
                       ? 'Next shift starts automatically when break ends'
-                      : `Shift ${currentShift} of 4 • ${currentShift < 4 ? 'Break coming soon' : 'Final shift'}`}
+                      : `Period ${currentShift} of 3 • ${currentShift < 3 ? 'Break coming soon' : 'Final period'}`}
                   </p>
                 </div>
               </div>
@@ -706,7 +705,7 @@ export function PreShiftWizard() {
               {/* Progress Indicator */}
               <div className="mb-6">
                 <div className="flex items-center justify-center gap-2">
-                  {[1, 2, 3, 4].map((shiftNum) => (
+                  {[1, 2, 3].map((shiftNum) => (
                     <div
                       key={shiftNum}
                       className={`h-2 flex-1 rounded-full transition-all ${
@@ -723,8 +722,8 @@ export function PreShiftWizard() {
                 </div>
                 <p className="mt-2 text-sm text-slate-400">
                   {isOnBreak 
-                    ? `Break between shift ${currentShift - 1} and ${currentShift}`
-                    : `Working on shift ${currentShift} of 4`}
+                    ? `Break between period ${currentShift - 1} and ${currentShift}`
+                    : `Working on period ${currentShift} of 3`}
                 </p>
               </div>
 
@@ -745,7 +744,7 @@ export function PreShiftWizard() {
                    onClick={handleStartShift}
                    className="flex-1 rounded-xl border border-slate-400 bg-transparent px-6 py-3 text-lg font-semibold text-pearl-primary transition hover:bg-pearl-primary/10 shadow-lg"
                  >
-                   {isOnBreak ? 'Continue Break' : currentShift === 1 ? 'Start My First Shift' : `Start Shift ${currentShift}`}
+                   {isOnBreak ? 'Continue Break' : currentShift === 1 ? 'Start My First Work Period' : `Start Work Period ${currentShift}`}
                  </button>
                 <button
                   onClick={handleClosePopup}
