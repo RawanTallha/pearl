@@ -56,7 +56,7 @@ export function ControllerDashboard() {
         <div className="lg:col-span-2 rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
           <h2 className="text-lg font-semibold text-slate-500">Current Fatigue Indicator</h2>
           <p className="mt-1 text-sm text-slate-500">
-            PEARL continuously monitors your biometric and operational cues to provide a calming reminder only to you.
+            Continuous monitoring.
           </p>
           {snapshot ? (
             <div className="mt-6 flex flex-col gap-4">
@@ -67,7 +67,7 @@ export function ControllerDashboard() {
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Personal readiness</p>
                 <p className="mt-2 text-4xl font-semibold text-slate-100">{snapshot.readinessLevel.toFixed(2)}</p>
-                <p className="mt-2 text-sm text-slate-500">Your readiness is recalibrated against the morning baseline.</p>
+                <p className="mt-2 text-sm text-slate-500">Recalibrated baseline.</p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -100,7 +100,7 @@ export function ControllerDashboard() {
         <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
           <h2 className="text-lg font-semibold text-slate-500">Baseline snapshot</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Quick reminder of your refreshed baseline after the pre-shift readiness sequence.
+            Baseline reminder.
           </p>
           <div className="mt-6 space-y-5">
             <div>

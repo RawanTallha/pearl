@@ -54,28 +54,28 @@ export function PreShiftWizard() {
     {
       id: 'face',
       title: 'Face Scan',
-      description: 'Quick 20-second scan to set your baseline. Optional - you can skip this step.',
+      description: 'Quick baseline scan.',
       status: stepIndex === 0 ? 'active' : stepIndex > 0 ? 'completed' : 'pending',
       result: faceScanResult,
     },
     {
       id: 'voice',
       title: 'Voice Sample',
-      description: 'Read a simple sentence to help us understand your voice patterns.',
+      description: 'Read a sentence.',
       status: stepIndex === 1 ? 'active' : stepIndex > 1 ? 'completed' : 'pending',
       result: voiceSampleResult,
     },
     {
       id: 'reaction',
       title: 'Reaction Test',
-      description: 'Click when you see red. Just 2-3 clicks, takes less than 30 seconds.',
+      description: 'Click when red.',
       status: stepIndex === 2 ? 'active' : stepIndex > 2 ? 'completed' : 'pending',
       result: reactionResult,
     },
     {
       id: 'health',
       title: 'Quick Check-in',
-      description: 'Tell us how many hours you slept to personalize your baseline.',
+      description: 'Enter sleep hours.',
       status: stepIndex === 3 ? 'active' : stepIndex > 3 ? 'completed' : 'pending',
       result: healthCheckResult,
     },
@@ -457,7 +457,7 @@ export function PreShiftWizard() {
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Pre-shift readiness sequence</p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-100">Good morning, {controller.name}</h2>
             <p className="mt-2 text-sm text-slate-500">
-              Follow the four-step refresh to keep the baseline calibrated before your duty window.
+              Four-step baseline refresh.
             </p>
           </div>
           <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-6 py-4 text-right">
@@ -506,7 +506,7 @@ export function PreShiftWizard() {
             {stepIndex === 0 && (
               <div className="mt-6 space-y-4">
                 <p className="text-sm text-slate-500 italic">
-                  Note: Face scan is currently optional. You can skip this step and proceed to the next activity.
+                  Optional step.
                 </p>
                  {faceScanStatus === 'idle' && (
                    <button
@@ -552,7 +552,7 @@ export function PreShiftWizard() {
                       <p className="font-medium text-pearl-primary">Latest capture</p>
                       <p className="mt-2 text-slate-500">{faceScanResult}</p>
                       <p className="mt-3 text-xs text-slate-500">
-                        Media is processed locally and discarded right after the features are refreshed.
+                        Processed locally.
                       </p>
                     </div>
                     {faceScanStreamRef.current && (
@@ -580,8 +580,8 @@ export function PreShiftWizard() {
                   <p className="mt-3 text-lg text-pearl-primary">
                     &quot;The quick brown fox jumps over the lazy dog while maintaining clear communication protocols.&quot;
                   </p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    This sentence helps measure vocal sensitivity and voice-related fatigue factors.
+                    <p className="mt-2 text-xs text-slate-500">
+                    Measures voice patterns.
                   </p>
                 </div>
                  {voiceSampleStatus === 'idle' && (
@@ -619,7 +619,7 @@ export function PreShiftWizard() {
             {stepIndex === 2 && (
               <div className="mt-6 space-y-4">
                 <p className="text-sm text-slate-500">
-                  When the screen turns red, click the button as quickly as possible. The test will end after 2-3 clicks or maximum 30 seconds.
+                  Click when red appears.
                 </p>
                  {reactionStatus === 'idle' && (
                    <button
@@ -696,7 +696,7 @@ export function PreShiftWizard() {
 
             <div className="mt-6 flex items-center justify-between">
               <p className="text-xs text-slate-500">
-                ✓ Pre-shift completion stores the updated baseline under your Controller ID for supervisor awareness.
+                ✓ Baseline stored for supervisor awareness.
               </p>
                <button
                  onClick={handleContinue}

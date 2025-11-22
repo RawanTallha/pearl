@@ -72,16 +72,16 @@ export function Landing() {
                 Comfortable fatigue monitoring
               </h1>
               <p className="mt-3 text-base text-slate-400">
-                Pick your workspace and breeze through a focused, two-minute flow.
+                Choose your workspace.
               </p>
             </div>
 
             <div className="grid w-full gap-5 grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {[
-                { title: 'Guided routines', helper: 'Bite-size steps keep stress low.' },
-                { title: 'Live awareness', helper: 'Only the critical signals show.' },
-                { title: 'Private data loop', helper: 'Biometrics stay with the controller.' },
-                { title: 'One-tap exports', helper: 'Share reports instantly.' },
+                { title: 'Guided routines', helper: 'Simple steps.' },
+                { title: 'Live awareness', helper: 'Critical signals only.' },
+                { title: 'Private data loop', helper: 'Private data.' },
+                { title: 'One-tap exports', helper: 'Instant exports.' },
               ].map((card) => (
                 <div
                   key={card.title}
@@ -120,8 +120,8 @@ export function Landing() {
                   </p>
                   <p className="mt-1 text-xs text-slate-300">
                     {role === 'controller'
-                      ? 'Refresh, monitor, and wrap up with a quiet summary.'
-                      : 'Glance, nudge, and export in one calm view.'}
+                      ? 'Monitor and review.'
+                      : 'Monitor and export.'}
                   </p>
                 </button>
               ))}
