@@ -76,6 +76,9 @@ export function ControllerLayout() {
             <Outlet />
           </section>
         </div>
+        <footer className="mt-8 text-center">
+          <p className="text-xs text-slate-500">Al-Dana Team LRR</p>
+        </footer>
       </div>
     </div>
   )
