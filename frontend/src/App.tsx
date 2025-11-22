@@ -11,11 +11,16 @@ import { SupervisorDashboard } from './features/supervisor/SupervisorDashboard'
 import { ControllerManagement } from './features/supervisor/ControllerManagement'
 import { AnalyticsView } from './features/supervisor/AnalyticsView'
 import { SettingsView } from './features/settings/SettingsView'
+import { MonitoringDemo } from './features/demo/MonitoringDemo'
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: <Landing />,
+  },
+  {
+    path: '/demo',
+    element: <MonitoringDemo />,
   },
   {
     path: '/controller',

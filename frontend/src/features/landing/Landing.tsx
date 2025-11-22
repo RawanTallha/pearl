@@ -92,6 +92,14 @@ export function Landing() {
                 </div>
               ))}
             </div>
+            <div className="mt-6">
+              <a
+                href="/demo"
+                className="inline-block rounded-xl border border-slate-400 bg-transparent px-4 py-2 text-sm font-semibold text-pearl-primary transition hover:bg-pearl-primary/10"
+              >
+                View Monitoring Demo (For Mentors)
+              </a>
+            </div>
           </section>
 
           <section className="pearl-panel space-y-9 p-6 lg:p-12 w-full">
