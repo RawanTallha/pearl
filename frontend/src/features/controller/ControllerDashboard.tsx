@@ -3,6 +3,7 @@ import { subscribeToSimulation } from '../../services/simulationService'
 import { fetchLiveFrame } from '../../services/dataService'
 import type { FatigueSnapshot } from '../../types'
 import { useSessionStore } from '../../store/useSessionStore'
+import { useShiftStore } from '../../store/useShiftStore'
 
 const statusStyles: Record<FatigueSnapshot['status'], string> = {
   Normal: 'bg-pearl-success/20 text-pearl-success border border-pearl-success/40',
@@ -13,6 +14,16 @@ const statusStyles: Record<FatigueSnapshot['status'], string> = {
 export function ControllerDashboard() {
   const controller = useSessionStore((state) => state.controller)
   const [snapshot, setSnapshot] = useState<FatigueSnapshot | null>(null)
+  
+  // Shift tracking
+  const {
+    currentShift,
+    status: shiftStatus,
+    shiftTimeRemaining,
+    breakTimeRemaining,
+    isOnBreak,
+    updateTimer,
+  } = useShiftStore()
 
   useEffect(() => {
     if (!controller) return
@@ -44,12 +55,95 @@ export function ControllerDashboard() {
 
   const baselineFactors = useMemo(() => controller?.baselineFactors, [controller])
 
+  // Update shift timer every second
+  useEffect(() => {
+    // Update immediately on mount if shift is active
+    if (shiftStatus === 'active' || shiftStatus === 'break') {
+      updateTimer()
+      
+      const interval = setInterval(() => {
+        updateTimer()
+      }, 1000)
+
+      return () => clearInterval(interval)
+    }
+  }, [shiftStatus, updateTimer])
+
+  // Format time helper
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`
+  }
+
   if (!controller) {
     return null
   }
 
   return (
     <div className="space-y-8">
+      {/* Shift Timer */}
+      {(shiftStatus === 'active' || shiftStatus === 'break') && (
+        <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-500">
+                {isOnBreak ? 'Break Time' : `Shift ${currentShift} of 4`}
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                {isOnBreak
+                  ? 'Take a well-deserved break. Rest, hydrate, and recharge.'
+                  : `Working on shift ${currentShift} of 4`}
+              </p>
+            </div>
+            <div className="rounded-2xl border-2 border-pearl-primary/40 bg-slate-800/80 px-8 py-6 text-center">
+              <p className="text-sm uppercase tracking-wider text-slate-400 mb-2">
+                {isOnBreak ? 'Break Time Remaining' : 'Shift Time Remaining'}
+              </p>
+              <p className="text-5xl font-mono font-bold text-pearl-primary">
+                {formatTime(isOnBreak ? breakTimeRemaining : shiftTimeRemaining)}
+              </p>
+              <p className="mt-3 text-sm text-slate-400">
+                {isOnBreak
+                  ? 'Next shift starts automatically when break ends'
+                  : currentShift < 4
+                  ? 'Break coming soon'
+                  : 'Final shift'}
+              </p>
+            </div>
+          </div>
+          
+          {/* Progress Indicator */}
+          <div className="mt-6">
+            <div className="flex items-center justify-center gap-2">
+              {[1, 2, 3, 4].map((shiftNum) => (
+                <div
+                  key={shiftNum}
+                  className={`h-2 flex-1 rounded-full transition-all ${
+                    shiftNum < currentShift
+                      ? 'bg-pearl-success'
+                      : shiftNum === currentShift
+                      ? isOnBreak
+                        ? 'bg-pearl-warning animate-pulse'
+                        : 'bg-pearl-primary'
+                      : 'bg-slate-700'
+                  }`}
+                />
+              ))}
+            </div>
+            <p className="mt-2 text-center text-sm text-slate-400">
+              {isOnBreak
+                ? `Break between shift ${currentShift - 1} and ${currentShift}`
+                : `Working on shift ${currentShift} of 4`}
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* Current Fatigue Indicator - Merged with Baseline and Sector */}
       <section className="grid gap-6 lg:grid-cols-3">
         {/* Current Fatigue Indicator */}

@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../../store/useSessionStore'
+import { useShiftStore } from '../../store/useShiftStore'
 
 
 type StepStatus = 'pending' | 'active' | 'completed'
@@ -44,11 +45,16 @@ export function PreShiftWizard() {
   
   // Shift Start Popup state
   const [showShiftStartPopup, setShowShiftStartPopup] = useState(false)
-  const [currentShift, setCurrentShift] = useState(1) // 1-4 shifts per day
-  const [shiftTimeRemaining, setShiftTimeRemaining] = useState(120 * 60) // 2 hours in seconds
-  const [breakTimeRemaining, setBreakTimeRemaining] = useState(0) // Break time in seconds
-  const [isOnBreak, setIsOnBreak] = useState(false)
-  const shiftTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  
+  // Use shift store
+  const {
+    currentShift,
+    status: shiftStatus,
+    shiftTimeRemaining,
+    breakTimeRemaining,
+    isOnBreak,
+    startShift,
+  } = useShiftStore()
 
   const sequence: StepData[] = [
     {
@@ -68,7 +74,7 @@ export function PreShiftWizard() {
     {
       id: 'reaction',
       title: 'Reaction Test',
-      description: 'Click when red.',
+      description: 'Click when red appears.',
       status: stepIndex === 2 ? 'active' : stepIndex > 2 ? 'completed' : 'pending',
       result: reactionResult,
     },
@@ -331,76 +337,21 @@ export function PreShiftWizard() {
       // Show shift start popup after completion
       setTimeout(() => {
         setShowShiftStartPopup(true)
-        // Initialize first shift timer
-        setShiftTimeRemaining(120 * 60) // 2 hours
-        setCurrentShift(1)
-        setIsOnBreak(false)
-        startShiftTimer()
       }, 500)
     }
   }
 
-  // Shift timer logic
-  const startShiftTimer = useCallback(() => {
-    // Clear any existing timer
-    if (shiftTimerRef.current) {
-      clearInterval(shiftTimerRef.current)
-    }
-
-    // Start unified countdown timer that handles both shift and break
-    shiftTimerRef.current = setInterval(() => {
-      setIsOnBreak((prevIsOnBreak) => {
-        if (prevIsOnBreak) {
-          // Currently on break - count down break time
-          let shouldStayOnBreak = true
-          setBreakTimeRemaining((prevBreakTime) => {
-            const newBreakTime = Math.max(0, prevBreakTime - 1)
-            if (newBreakTime === 0 && prevBreakTime > 0) {
-              // Break just ended, start next shift
-              shouldStayOnBreak = false
-              setCurrentShift((prevShift) => {
-                const nextShift = Math.min(prevShift + 1, 4)
-                if (nextShift <= 4) {
-                  setShiftTimeRemaining(120 * 60) // Reset to 2 hours for next shift
-                }
-                return nextShift
-              })
-            }
-            return newBreakTime
-          })
-          return shouldStayOnBreak
-        } else {
-          // Currently working on shift - count down shift time
-          let shouldStayOnShift = true
-          setShiftTimeRemaining((prevShiftTime) => {
-            const newShiftTime = Math.max(0, prevShiftTime - 1)
-            if (newShiftTime === 0 && prevShiftTime > 0) {
-              // Shift just ended, start break
-              shouldStayOnShift = false
-              // Break duration: 40-60 minutes (randomized for flexibility)
-              const breakDuration = 40 * 60 + Math.random() * 20 * 60 // 40-60 minutes
-              setBreakTimeRemaining(Math.floor(breakDuration))
-            }
-            return newShiftTime
-          })
-          return shouldStayOnShift
-        }
-      })
-    }, 1000)
-  }, [])
-
   const handleStartShift = () => {
-    // Navigate to dashboard, popup stays open
+    // Start the shift using the store
+    startShift(currentShift)
+    // Navigate to dashboard
     navigate('/controller', { replace: false })
+    // Close popup
+    setShowShiftStartPopup(false)
   }
   
   const handleClosePopup = () => {
     setShowShiftStartPopup(false)
-    // Clear timer when popup is closed
-    if (shiftTimerRef.current) {
-      clearInterval(shiftTimerRef.current)
-      shiftTimerRef.current = null
-    }
   }
 
   const formatTime = (seconds: number) => {
@@ -413,18 +364,6 @@ export function PreShiftWizard() {
     return `${minutes}:${secs.toString().padStart(2, '0')}`
   }
 
-  // Cleanup timer on unmount and when popup closes
-  useEffect(() => {
-    if (!showShiftStartPopup && shiftTimerRef.current) {
-      clearInterval(shiftTimerRef.current)
-      shiftTimerRef.current = null
-    }
-    return () => {
-      if (shiftTimerRef.current) {
-        clearInterval(shiftTimerRef.current)
-      }
-    }
-  }, [showShiftStartPopup])
 
   const handleSleepHoursSubmit = () => {
     const hours = parseFloat(sleepHours)
@@ -505,9 +444,6 @@ export function PreShiftWizard() {
             {/* Face Scan Step */}
             {stepIndex === 0 && (
               <div className="mt-6 space-y-4">
-                <p className="text-sm text-slate-500 italic">
-                  Optional step.
-                </p>
                  {faceScanStatus === 'idle' && (
                    <button
                      onClick={startFaceScan}
@@ -618,9 +554,7 @@ export function PreShiftWizard() {
             {/* Reaction Time Challenge Step */}
             {stepIndex === 2 && (
               <div className="mt-6 space-y-4">
-                <p className="text-sm text-slate-500">
-                  Click when red appears.
-                </p>
+
                  {reactionStatus === 'idle' && (
                    <button
                      onClick={startReactionChallenge}
