@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { subscribeToSimulation } from '../../services/simulationService'
-import { fetchBackupCandidate, fetchSectorForController, fetchLiveFrame } from '../../services/dataService'
+import { fetchLiveFrame } from '../../services/dataService'
 import type { FatigueSnapshot } from '../../types'
 import { useSessionStore } from '../../store/useSessionStore'
 
@@ -14,18 +13,6 @@ const statusStyles: Record<FatigueSnapshot['status'], string> = {
 export function ControllerDashboard() {
   const controller = useSessionStore((state) => state.controller)
   const [snapshot, setSnapshot] = useState<FatigueSnapshot | null>(null)
-
-  const { data: sector } = useQuery({
-    queryKey: ['sector', controller?.id],
-    queryFn: () => fetchSectorForController(controller?.id ?? ''),
-    enabled: Boolean(controller?.id),
-  })
-
-  const { data: backupCandidate } = useQuery({
-    queryKey: ['backup', controller?.id],
-    queryFn: () => fetchBackupCandidate(controller?.id ?? ''),
-    enabled: Boolean(controller?.id),
-  })
 
   useEffect(() => {
     if (!controller) return
@@ -143,37 +130,6 @@ export function ControllerDashboard() {
           </div>
         </div>
       </section>
-
-      {/* Sector Assignment */}
-      {sector ? (
-        <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-500">Sector assignment</h3>
-              <p className="text-sm text-slate-500">
-                Your operational clearance is limited to <span className="text-pearl-primary">{sector.name}</span>. Shift
-                group: {sector.shiftGroup}.
-              </p>
-            </div>
-            {backupCandidate ? (
-              <div className="rounded-xl border border-pearl-warning/40 bg-pearl-warning/10 px-4 py-3 text-sm text-pearl-warning">
-                <p className="font-semibold">Sector backup on standby</p>
-                <p>
-                  {backupCandidate.name} is rostered as the immediate backup for {sector.name}. A supervisor will notify
-                  them if your fatigue indicator turns red.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-slate-700 bg-slate-900/55 px-4 py-3 text-sm text-slate-500">
-                Backup assignment is under review. Contact the supervisor if a substitution is required.
-              </div>
-            )}
-          </div>
-          {sector.description ? (
-            <p className="mt-4 text-xs text-slate-500">Sector brief: {sector.description}</p>
-          ) : null}
-        </section>
-      ) : null}
     </div>
   )
 }

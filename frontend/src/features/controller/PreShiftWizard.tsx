@@ -1,7 +1,5 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { fetchBackupCandidate, fetchSectorForController } from '../../services/dataService'
 import { useSessionStore } from '../../store/useSessionStore'
 
 
@@ -51,19 +49,6 @@ export function PreShiftWizard() {
   const [breakTimeRemaining, setBreakTimeRemaining] = useState(0) // Break time in seconds
   const [isOnBreak, setIsOnBreak] = useState(false)
   const shiftTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const { data: sector } = useQuery({
-    queryKey: ['sector', controller?.id],
-    queryFn: () => fetchSectorForController(controller?.id ?? ''),
-    enabled: Boolean(controller?.id),
-  })
-
-  const { data: backupCandidate } = useQuery({
-    queryKey: ['backup', controller?.id],
-    queryFn: () => fetchBackupCandidate(controller?.id ?? ''),
-    enabled: Boolean(controller?.id),
-  })
-
 
   const sequence: StepData[] = [
     {
@@ -465,41 +450,6 @@ export function PreShiftWizard() {
 
   return (
     <div className="space-y-8">
-     
-
-      {/* Sector Assignment */}
-      {sector ? (
-        <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-500">Sector assignment</h3>
-              <p className="text-sm text-slate-500">
-                Your operational clearance is limited to <span className="text-pearl-primary">{sector.name}</span>. Shift
-                group: {sector.shiftGroup}.
-              </p>
-            </div>
-            {backupCandidate ? (
-              <div className="rounded-xl border border-pearl-warning/40 bg-pearl-warning/10 px-4 py-3 text-sm text-pearl-warning">
-                <p className="font-semibold">Sector backup on standby</p>
-                <p>
-                  {backupCandidate.name} is rostered as the immediate backup for {sector.name}. A supervisor will notify
-                  them if your fatigue indicator turns red.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-slate-700 bg-slate-900/55 px-4 py-3 text-sm text-slate-500">
-                Backup assignment is under review. Contact the supervisor if a substitution is required.
-              </div>
-            )}
-          </div>
-          {sector.description ? (
-            <p className="mt-4 text-xs text-slate-500">Sector brief: {sector.description}</p>
-          ) : null}
-        </section>
-      ) : null}
-
-    
-
       {/* Pre-Shift Readiness Sequence */}
       <div className="space-y-6">
         <header className="flex flex-col gap-4 rounded-2xl bg-slate-900/70 p-6 md:flex-row md:items-center md:justify-between">
@@ -558,14 +508,14 @@ export function PreShiftWizard() {
                 <p className="text-sm text-slate-500 italic">
                   Note: Face scan is currently optional. You can skip this step and proceed to the next activity.
                 </p>
-                {faceScanStatus === 'idle' && (
-                  <button
-                    onClick={startFaceScan}
-                    className="rounded-xl bg-pearl-primary px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
-                  >
-                    Start Face Scan
-                  </button>
-                )}
+                 {faceScanStatus === 'idle' && (
+                   <button
+                     onClick={startFaceScan}
+                     className="rounded-xl border border-slate-400 bg-transparent px-5 py-3 text-sm font-semibold text-pearl-primary transition hover:bg-pearl-primary/10"
+                   >
+                     Start Face Scan
+                   </button>
+                 )}
                 {faceScanStatus === 'capturing' && (
                   <div className="space-y-4">
                     <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/55 aspect-video">
@@ -634,14 +584,14 @@ export function PreShiftWizard() {
                     This sentence helps measure vocal sensitivity and voice-related fatigue factors.
                   </p>
                 </div>
-                {voiceSampleStatus === 'idle' && (
-                  <button
-                    onClick={startVoiceSample}
-                    className="rounded-xl bg-pearl-primary px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
-                  >
-                    Start Recording
-                  </button>
-                )}
+                 {voiceSampleStatus === 'idle' && (
+                   <button
+                     onClick={startVoiceSample}
+                     className="rounded-xl border border-slate-400 bg-transparent px-5 py-3 text-sm font-semibold text-pearl-primary transition hover:bg-pearl-primary/10"
+                   >
+                     Start Recording
+                   </button>
+                 )}
                 {voiceSampleStatus === 'recording' && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
@@ -671,14 +621,14 @@ export function PreShiftWizard() {
                 <p className="text-sm text-slate-500">
                   When the screen turns red, click the button as quickly as possible. The test will end after 2-3 clicks or maximum 30 seconds.
                 </p>
-                {reactionStatus === 'idle' && (
-                  <button
-                    onClick={startReactionChallenge}
-                    className="rounded-xl bg-pearl-primary px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
-                  >
-                    Start Reaction Challenge
-                  </button>
-                )}
+                 {reactionStatus === 'idle' && (
+                   <button
+                     onClick={startReactionChallenge}
+                     className="rounded-xl border border-slate-400 bg-transparent px-5 py-3 text-sm font-semibold text-pearl-primary transition hover:bg-pearl-primary/10"
+                   >
+                     Start Reaction Challenge
+                   </button>
+                 )}
                 {(reactionStatus === 'waiting' || reactionStatus === 'active') && (
                   <div className="space-y-4">
                     <div
@@ -727,12 +677,12 @@ export function PreShiftWizard() {
                       placeholder="Enter hours (e.g., 7.5)"
                       className="flex-1 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2 text-slate-100 placeholder:text-slate-500 focus:border-pearl-primary focus:outline-none"
                     />
-                    <button
-                      onClick={handleSleepHoursSubmit}
-                      className="rounded-xl bg-pearl-primary px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-300"
-                    >
-                      Submit
-                    </button>
+                     <button
+                       onClick={handleSleepHoursSubmit}
+                       className="rounded-xl border border-slate-400 bg-transparent px-5 py-2 text-sm font-semibold text-pearl-primary transition hover:bg-pearl-primary/10"
+                     >
+                       Submit
+                     </button>
                   </div>
                 </div>
                 {healthCheckResult && (
@@ -748,17 +698,17 @@ export function PreShiftWizard() {
               <p className="text-xs text-slate-500">
                 ✓ Pre-shift completion stores the updated baseline under your Controller ID for supervisor awareness.
               </p>
-              <button
-                onClick={handleContinue}
-                disabled={
-                  (stepIndex === 1 && voiceSampleStatus !== 'completed') ||
-                  (stepIndex === 2 && reactionStatus !== 'completed') ||
-                  (stepIndex === 3 && !healthCheckResult)
-                }
-                className="rounded-xl bg-pearl-primary px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {stepIndex === sequence.length - 1 ? 'Complete baseline refresh' : 'Proceed to next activity'}
-              </button>
+               <button
+                 onClick={handleContinue}
+                 disabled={
+                   (stepIndex === 1 && voiceSampleStatus !== 'completed') ||
+                   (stepIndex === 2 && reactionStatus !== 'completed') ||
+                   (stepIndex === 3 && !healthCheckResult)
+                 }
+                 className="rounded-xl border border-slate-400 bg-transparent px-5 py-2 text-sm font-semibold text-pearl-primary transition hover:bg-pearl-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+               >
+                 {stepIndex === sequence.length - 1 ? 'Complete baseline refresh' : 'Proceed to next activity'}
+               </button>
             </div>
             {complete ? (
               <div className="mt-6 rounded-2xl border border-pearl-success/60 bg-pearl-success/10 px-4 py-3 text-sm text-pearl-success">
@@ -857,12 +807,12 @@ export function PreShiftWizard() {
 
               {/* Action Buttons */}
               <div className="flex gap-3">
-                <button
-                  onClick={handleStartShift}
-                  className="flex-1 rounded-xl bg-pearl-primary px-6 py-3 text-lg font-semibold text-slate-950 transition hover:bg-pearl-primary/90 shadow-lg"
-                >
-                  {isOnBreak ? 'Continue Break' : currentShift === 1 ? 'Start My First Shift' : `Start Shift ${currentShift}`}
-                </button>
+                 <button
+                   onClick={handleStartShift}
+                   className="flex-1 rounded-xl border border-slate-400 bg-transparent px-6 py-3 text-lg font-semibold text-pearl-primary transition hover:bg-pearl-primary/10 shadow-lg"
+                 >
+                   {isOnBreak ? 'Continue Break' : currentShift === 1 ? 'Start My First Shift' : `Start Shift ${currentShift}`}
+                 </button>
                 <button
                   onClick={handleClosePopup}
                   className="rounded-xl border border-slate-700 bg-slate-800/50 px-6 py-3 text-lg font-semibold text-slate-300 transition hover:bg-slate-700/50"

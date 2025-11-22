@@ -38,7 +38,7 @@ export function Landing() {
       return
     }
     loginController(profile)
-    navigate('/controller', { replace: true })
+    navigate('/controller/pre-shift', { replace: true })
   }
 
   const handleSupervisorLogin = async (event: FormEvent) => {
