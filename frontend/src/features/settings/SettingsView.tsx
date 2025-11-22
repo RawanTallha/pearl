@@ -14,19 +14,18 @@ export function SettingsView() {
 
   return (
     <div className="space-y-8">
-      <header className="rounded-2xl bg-slate-900/70 p-6">
+      <header className="rounded-2xl bg-slate-900/70 p-6 animate-in fade-in slide-in-from-top-2 duration-500">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">PEARL settings overview</p>
         <h2 className="mt-2 text-2xl font-semibold text-slate-100">Fine-tune the fatigue engine with controlled access</h2>
         <p className="mt-2 text-sm text-slate-500">
-          Permissions adapt to the selected track. Controllers keep autonomy over capture devices, while supervisors
-          manage thresholds and reporting.
+          Role-based permissions. Controllers manage devices; supervisors manage thresholds.
         </p>
       </header>
 
       <section className="rounded-2xl border border-slate-700 bg-slate-900/80">
         <div className="border-b border-slate-700 px-6 py-4">
           <h3 className="text-lg font-semibold text-slate-500">Shared module access matrix</h3>
-          <p className="text-sm text-slate-500">Role-based controls ensure privacy and operational clarity.</p>
+          <p className="text-sm text-slate-500">Role-based controls for privacy and clarity.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-800 text-sm">
@@ -39,7 +38,7 @@ export function SettingsView() {
             </thead>
             <tbody className="divide-y divide-slate-800/80 text-slate-500">
               {settingsMatrix.map((item) => (
-                <tr key={item.option} className="hover:bg-slate-900/50">
+                <tr key={item.option} className="hover:bg-slate-900/50 transition-colors">
                   <td className="px-6 py-4 font-semibold text-slate-100">{item.option}</td>
                   <td className="px-6 py-4 text-slate-500">{item.description}</td>
                   <td className="px-6 py-4 text-xs text-slate-500">{item.access}</td>
@@ -54,13 +53,13 @@ export function SettingsView() {
         <h3 className="text-lg font-semibold text-slate-500">Calibration</h3>
         <p className="mt-2">
           {role === 'supervisor'
-            ? 'Adjust fatigue weights directly in the calibration panel below. Prototype controls are locked, but this card demonstrates where the sliders and password confirmations would live.'
-            : 'Calibration sliders unlock for supervisors. Controllers can request adjustments through supervisor chat for collaborative tuning.'}
+            ? 'Adjust fatigue weights in the calibration panel. Controls are locked in prototype mode.'
+            : 'Calibration sliders unlock for supervisors. Request adjustments through supervisor chat.'}
         </p>
-        <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+        <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/55 p-5 transition-all hover:border-slate-600">
           <p className="text-slate-500">
             {role === 'supervisor'
-              ? '🔒 Sensitive change — confirm password to alter blink/yawn thresholds.'
+              ? '🔒 Sensitive change — confirm password to alter thresholds.'
               : 'ℹ️ View-only mode — awaiting supervisor confirmation.'}
           </p>
         </div>

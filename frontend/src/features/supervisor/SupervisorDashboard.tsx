@@ -318,26 +318,26 @@ export function SupervisorDashboard() {
   return (
     <>
       <div className="space-y-8">
-      <header className="grid gap-6 md:grid-cols-4">
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
+      <header className="grid gap-6 md:grid-cols-4 animate-in fade-in slide-in-from-top-2 duration-500">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-slate-900/50">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Controllers online</p>
-          <p className="mt-2 text-4xl font-semibold text-slate-100">{filtered.length}</p>
-          <p className="mt-2 text-sm text-slate-500">Active controllers</p>
+          <p className="mt-2 text-4xl font-semibold text-slate-100 transition-transform hover:scale-105">{filtered.length}</p>
+          <p className="mt-2 text-sm text-slate-500">Active</p>
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-pearl-warning/50 hover:shadow-lg hover:shadow-pearl-warning/20">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Active alerts</p>
-          <p className="mt-2 text-4xl font-semibold text-pearl-warning">{activeAlerts.length}</p>
-          <p className="mt-2 text-sm text-slate-500">Require attention</p>
+          <p className="mt-2 text-4xl font-semibold text-pearl-warning transition-transform hover:scale-105">{activeAlerts.length}</p>
+          <p className="mt-2 text-sm text-slate-500">Need attention</p>
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-pearl-warning/50 hover:shadow-lg hover:shadow-pearl-warning/20">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Voice fatigue alerts</p>
-          <p className="mt-2 text-4xl font-semibold text-pearl-warning">{voiceActiveCount}</p>
-          <p className="mt-2 text-sm text-slate-500">Voice fatigue detected</p>
+          <p className="mt-2 text-4xl font-semibold text-pearl-warning transition-transform hover:scale-105">{voiceActiveCount}</p>
+          <p className="mt-2 text-sm text-slate-500">Voice detected</p>
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-slate-900/50">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Recent interventions</p>
-          <p className="mt-2 text-4xl font-semibold text-slate-100">{actions?.length ?? 0}</p>
-          <p className="mt-2 text-sm text-slate-500">Actions taken today</p>
+          <p className="mt-2 text-4xl font-semibold text-slate-100 transition-transform hover:scale-105">{actions?.length ?? 0}</p>
+          <p className="mt-2 text-sm text-slate-500">Today</p>
         </div>
       </header>
 
@@ -348,7 +348,7 @@ export function SupervisorDashboard() {
               <div>
                 <h2 className="text-lg font-semibold text-slate-500">Controller Status</h2>
                 <p className="text-sm text-slate-500">
-                  Real-time fatigue monitoring
+                  Live monitoring
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -383,7 +383,7 @@ export function SupervisorDashboard() {
                 {filtered.map(({ controller, snapshot }) => {
                   const backupName = backupBySector.get(controller.sectorId)
                   return (
-                  <tr key={controller.id} className="hover:bg-slate-900/50">
+                  <tr key={controller.id} className="hover:bg-slate-900/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-100">{controller.name}</div>
                       <div className="text-xs text-slate-500">{controller.id}</div>
@@ -401,7 +401,7 @@ export function SupervisorDashboard() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-xs text-slate-500">
-                      <div>{snapshot?.recommendation ?? 'Listening for AI advisory…'}</div>
+                      <div>{snapshot?.recommendation ?? 'Awaiting data…'}</div>
                       {snapshot?.status === 'High Fatigue' && backupName ? (
                         <p className="mt-2 rounded-lg border border-pearl-warning/30 bg-pearl-warning/10 px-3 py-2 font-semibold text-pearl-warning">
                           Notify backup: {backupName}
@@ -409,7 +409,7 @@ export function SupervisorDashboard() {
                       ) : null}
                       <button
                         onClick={() => window.open(`/supervisor/controller/${controller.id}/monitor`, '_blank')}
-                        className="mt-2 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-pearl-primary hover:text-pearl-primary transition-colors"
+                        className="mt-2 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-pearl-primary hover:text-pearl-primary hover:bg-pearl-primary/10 transition-all transform hover:scale-105"
                       >
                         View Performance
                       </button>
@@ -420,10 +420,10 @@ export function SupervisorDashboard() {
             </table>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
+        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 animate-in fade-in slide-in-from-right-4 duration-500">
           <h3 className="text-lg font-semibold text-slate-500 mb-2">Action Required</h3>
           <p className="text-sm text-slate-500 mb-4">
-            Controllers needing immediate attention
+            Immediate attention needed
           </p>
           {notifications.length > 0 ? (
             <FatigueNotification 
@@ -451,7 +451,7 @@ export function SupervisorDashboard() {
             <div className="relative">
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
-                className="rounded-lg border border-slate-700 bg-slate-900/55 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-slate-700 hover:text-slate-100"
+                className="rounded-lg border border-slate-700 bg-slate-900/55 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-pearl-primary hover:text-pearl-primary hover:bg-pearl-primary/10 transition-all transform hover:scale-105"
               >
                 Export
               </button>
@@ -461,16 +461,16 @@ export function SupervisorDashboard() {
                     className="fixed inset-0 z-10"
                     onClick={() => setShowExportMenu(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 z-20 rounded-xl border border-slate-700 bg-slate-950/70 shadow-lg overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 z-20 rounded-xl border border-slate-700 bg-slate-950/70 shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
                       onClick={handleExportPDF}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50"
+                      className="w-full px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50 hover:text-pearl-primary transition-colors"
                     >
                       Export as PDF
                     </button>
                     <button
                       onClick={handleExportExcel}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50 border-t border-slate-700"
+                      className="w-full px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50 hover:text-pearl-primary border-t border-slate-700 transition-colors"
                     >
                       Export as Excel
                     </button>
@@ -630,21 +630,20 @@ export function SupervisorDashboard() {
             <div>
               <h3 className="text-lg font-semibold text-slate-500">Sector roster overview</h3>
               <p className="mt-2 text-sm text-slate-500">
-                Backup pools are maintained per sector to guarantee immediate coverage when a controller exceeds fatigue
-                thresholds.
+                Backup pools per sector for immediate coverage.
               </p>
             </div>
             <button
               onClick={() => setSectorRosterExpanded(!sectorRosterExpanded)}
-              className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 hover:border-slate-600 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30 transition-colors"
+              className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2 text-sm text-slate-100 hover:border-pearl-primary hover:text-pearl-primary hover:bg-pearl-primary/10 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30 transition-all transform hover:scale-105"
             >
               {sectorRosterExpanded ? 'Collapse' : 'Expand'}
             </button>
           </div>
           {sectorRosterExpanded && (
-            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="mt-5 grid gap-4 lg:grid-cols-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {sectorRosters.map((sector) => (
-                <div key={sector.id} className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+                <div key={sector.id} className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-slate-900/50">
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{sector.id}</p>
                   <p className="mt-2 text-lg font-semibold text-slate-100">{sector.name}</p>
                   <p className="text-xs text-slate-500">{sector.shiftGroup}</p>

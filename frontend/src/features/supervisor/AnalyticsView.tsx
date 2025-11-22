@@ -95,11 +95,10 @@ export function AnalyticsView() {
 
   return (
     <div className="space-y-8">
-      <header className="rounded-2xl bg-slate-900/70 p-6">
+      <header className="rounded-2xl bg-slate-900/70 p-6 animate-in fade-in slide-in-from-top-2 duration-500">
         <h2 className="text-2xl font-semibold text-slate-100">Monthly analytics preview</h2>
         <p className="mt-2 text-sm text-slate-500">
-          Heatmaps, shift peaks, and post-shift deltas consolidate fatigue signatures across the roster. Export reports
-          as CSV or PDF, or link with existing FRMS tooling.
+          Fatigue patterns and trends. Export reports as CSV or PDF.
         </p>
       </header>
 
@@ -108,14 +107,20 @@ export function AnalyticsView() {
           <div>
             <h3 className="text-lg font-semibold text-slate-500">Fatigue peak timeline</h3>
             <p className="text-sm text-slate-500">
-              Track peak fatigue values and end-of-shift deviations for rapid pattern recognition.
+              Peak fatigue and end-of-shift patterns.
             </p>
           </div>
           <div className="flex gap-3">
-            <button className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-slate-700 hover:text-slate-100">
+            <button 
+              onClick={handleExportCSV}
+              className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-pearl-primary hover:text-pearl-primary hover:bg-pearl-primary/10 transition-all transform hover:scale-105"
+            >
               Export CSV
             </button>
-            <button className="rounded-xl bg-pearl-primary px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-300">
+            <button 
+              onClick={handleExportPDF}
+              className="rounded-xl bg-pearl-primary px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-300 transition-all transform hover:scale-105 shadow-lg shadow-pearl-primary/30"
+            >
               Export PDF
             </button>
           </div>
@@ -160,19 +165,19 @@ export function AnalyticsView() {
             <div>
               <h3 className="text-lg font-semibold text-slate-500">Per-employee fatigue peaks</h3>
               <p className="text-sm text-slate-500">
-                Track individual controller fatigue trends over time. Double-click on data points to view detailed reports.
+                Individual controller trends. Double-click for details.
               </p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={handleExportCSV}
-                className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-slate-700 hover:text-slate-100"
+                className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-pearl-primary hover:text-pearl-primary hover:bg-pearl-primary/10 transition-all transform hover:scale-105"
               >
                 Export CSV
               </button>
               <button
                 onClick={handleExportPDF}
-                className="rounded-xl bg-pearl-primary px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-300"
+                className="rounded-xl bg-pearl-primary px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-300 transition-all transform hover:scale-105 shadow-lg shadow-pearl-primary/30"
               >
                 Export PDF
               </button>
@@ -206,22 +211,20 @@ export function AnalyticsView() {
       <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
         <h3 className="text-lg font-semibold text-slate-500">Shift-based fatigue multiplier</h3>
         <p className="mt-2 text-sm text-slate-500">
-          Analyze which shifts exert the most strain. Prototype data highlights the higher fatigue load during night
-          operations.
+          Shift strain analysis. Night operations show higher fatigue load.
         </p>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {heatmapSlots.map((slot) => (
-            <div key={slot.label} className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+            <div key={slot.label} className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-slate-900/50">
               <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{slot.label}</p>
-              <p className="mt-3 text-3xl font-semibold text-slate-100">{slot.multiplier.toFixed(2)}x</p>
-              <p className="mt-2 text-xs text-slate-500">Relative load compared with baseline mornings.</p>
+              <p className="mt-3 text-3xl font-semibold text-slate-100 transition-transform hover:scale-105">{slot.multiplier.toFixed(2)}x</p>
+              <p className="mt-2 text-xs text-slate-500">Relative to baseline mornings.</p>
             </div>
           ))}
         </div>
-        <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
+        <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/55 p-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <p className="text-sm text-slate-500">
-            <strong className="text-slate-100">Recommendation:</strong> rotate controllers every 90 minutes on night
-            shifts; evaluate hydration reminders at the 60-minute mark.
+            <strong className="text-slate-100">Recommendation:</strong> rotate every 90 minutes on night shifts; hydration reminders at 60 minutes.
           </p>
         </div>
       </section>
