@@ -145,7 +145,7 @@ export function Landing() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full rounded-2xl bg-pearl-primary px-4 py-3 font-semibold text-white transition hover:bg-pearl-primary/90 disabled:cursor-not-allowed disabled:bg-slate-900/60 disabled:text-slate-500"
+                  className="w-full rounded-2xl bg-green-500 px-4 py-3 font-semibold text-white shadow-lg shadow-green-500/30 transition hover:bg-green-600 hover:shadow-green-500/40 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:cursor-not-allowed disabled:bg-slate-900/60 disabled:text-slate-500 disabled:shadow-none"
                 >
                   {isSubmitting ? 'Processing…' : 'Enter controller portal'}
                 </button>
@@ -176,7 +176,7 @@ export function Landing() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full rounded-2xl bg-pearl-primary px-4 py-3 font-semibold text-white transition hover:bg-pearl-primary/90 disabled:cursor-not-allowed disabled:bg-slate-900/60 disabled:text-slate-500"
+                  className="w-full rounded-2xl bg-green-500 px-4 py-3 font-semibold text-white shadow-lg shadow-green-500/30 transition hover:bg-green-600 hover:shadow-green-500/40 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:cursor-not-allowed disabled:bg-slate-900/60 disabled:text-slate-500 disabled:shadow-none"
                 >
                   {isSubmitting ? 'Validating…' : 'Enter supervisor portal'}
                 </button>
