@@ -69,7 +69,7 @@ export function Landing() {
                 PEARL System
               </div>
               <h1 className="mt-6 text-3xl font-semibold text-slate-100 xl:text-4xl">
-                Comfortable fatigue monitoring
+              Proactive Early Awareness & Readiness Layer
               </h1>
               <p className="mt-3 text-base text-slate-400">
                 Choose your workspace.
