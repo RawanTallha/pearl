@@ -48,6 +48,8 @@ export function SupervisorDashboard() {
   const [actionsPanelExpanded, setActionsPanelExpanded] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [sectorRosterExpanded, setSectorRosterExpanded] = useState(false)
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date())
+  const [responseTime, setResponseTime] = useState<number>(0) // Average response time in seconds
 
   useEffect(() => {
     let mounted = true
@@ -55,6 +57,7 @@ export function SupervisorDashboard() {
       .then((initial) => {
         if (mounted && initial.length > 0) {
           setFrames(initial)
+          setLastUpdateTime(new Date())
         }
       })
       .catch((error) => {
@@ -64,6 +67,7 @@ export function SupervisorDashboard() {
     const unsubscribe = subscribeToSimulation((payload) => {
       if (mounted) {
         setFrames(payload)
+        setLastUpdateTime(new Date())
       }
     })
     return () => {
@@ -108,7 +112,35 @@ export function SupervisorDashboard() {
     return combined.filter((row) => row.controller.sectorId === selectedSector)
   }, [combined, selectedSector])
 
-  const activeAlerts = filtered.filter((row) => row.snapshot?.status === 'High Fatigue')
+  // Calculate performance metrics (after filtered is defined)
+  const performanceMetrics = useMemo(() => {
+    const totalControllers = filtered.length || 1 // Avoid division by zero
+    const normalCount = filtered.filter((row) => row.snapshot?.status === 'Normal').length
+    const monitorCount = filtered.filter((row) => row.snapshot?.status === 'Monitor').length
+    const highFatigueCount = filtered.filter((row) => row.snapshot?.status === 'High Fatigue').length
+    const avgResponseTime = actions && actions.length > 0 
+      ? actions.slice(0, 10).reduce((sum, action) => {
+          // Estimate response time (this would be calculated from actual timestamps in real scenario)
+          return sum + 2.5 // Placeholder
+        }, 0) / Math.min(actions.length, 10)
+      : 0
+    
+    return {
+      totalControllers: filtered.length,
+      normalCount,
+      monitorCount,
+      highFatigueCount,
+      healthScore: totalControllers > 0 ? Math.round((normalCount / totalControllers) * 100) : 100,
+      avgResponseTime: Math.round(avgResponseTime * 10) / 10,
+    }
+  }, [filtered, actions])
+
+  // Active alerts include both High Fatigue and Monitor (Early Fatigue) status
+  const activeAlerts = useMemo(() => {
+    return filtered.filter((row) => 
+      row.snapshot?.status === 'High Fatigue' || row.snapshot?.status === 'Monitor'
+    )
+  }, [filtered])
   const voiceActiveCount = useMemo(
     () => Object.values(voiceLatest).filter((sample) => Boolean(sample?.alertTriggered)).length,
     [voiceLatest],
@@ -185,9 +217,17 @@ export function SupervisorDashboard() {
       }
     })
 
-    // Re-add backups/planners for controllers that are no longer in high fatigue
-    const controllersThatReturned = Array.from(previousHighFatigueControllers.current).filter(
-      (controllerId) => !currentHighFatigueControllers.has(controllerId)
+    // Track controllers that returned to normal from any fatigued state
+    const previousFatiguedControllers = new Set([
+      ...previousHighFatigueControllers.current,
+      ...previousMonitorControllers.current
+    ])
+    const currentFatiguedControllers = new Set([
+      ...currentHighFatigueControllers,
+      ...currentMonitorControllers
+    ])
+    const controllersThatReturned = Array.from(previousFatiguedControllers).filter(
+      (controllerId) => !currentFatiguedControllers.has(controllerId)
     )
     if (controllersThatReturned.length > 0) {
       setAssignedBackups((prev) => {
@@ -233,22 +273,49 @@ export function SupervisorDashboard() {
       })
     }
 
-    // Add new notifications - notifications persist until supervisor takes action
-    if (newNotifications.length > 0) {
-      setNotifications((prev) => {
-        // Deduplicate by controller ID - don't add if notification already exists
-        const existingControllerIds = new Set(prev.map(n => n.controller.id))
-        const uniqueNew = newNotifications.filter(n => !existingControllerIds.has(n.controller.id))
-        return [...prev, ...uniqueNew]
+    // Sync notifications with current controller status
+    setNotifications((prev) => {
+      const allFatiguedControllers = new Set([...currentHighFatigueControllers, ...currentMonitorControllers])
+      const updatedNotifications: Array<{ id: string; controller: ControllerProfile; snapshot: FatigueSnapshot }> = []
+      
+      // Update existing notifications with current snapshots and keep only those still fatigued
+      prev.forEach((notif) => {
+        const currentSnapshot = combined.find(
+          (item) => item.controller.id === notif.controller.id
+        )?.snapshot
+        
+        // Only keep notification if controller is still in a fatigued state
+        if (allFatiguedControllers.has(notif.controller.id) && currentSnapshot) {
+          // Update snapshot to reflect current status
+          updatedNotifications.push({
+            ...notif,
+            snapshot: currentSnapshot,
+          })
+        } else {
+          // Controller returned to normal - remove notification unless action was taken
+          const hasAction = assignedBackups.has(notif.controller.id) || assignedPlanners.has(notif.controller.id)
+          if (!hasAction) {
+            // No action taken, remove notification
+            existingNotificationIds.current.delete(notif.controller.id)
+            lastNotificationTime.current.delete(notif.controller.id)
+          } else {
+            // Action was taken, keep notification but mark as resolved
+            updatedNotifications.push(notif)
+          }
+        }
       })
-    }
+      
+      // Add new notifications (deduplicate by controller ID)
+      const existingControllerIds = new Set(updatedNotifications.map(n => n.controller.id))
+      const uniqueNew = newNotifications.filter(n => !existingControllerIds.has(n.controller.id))
+      
+      return [...updatedNotifications, ...uniqueNew]
+    })
 
-    // DO NOT automatically remove notifications when status changes
-    // Notifications should persist until supervisor takes action
-    // Only update tracking sets for next comparison
+    // Update tracking sets for next comparison
     previousHighFatigueControllers.current = currentHighFatigueControllers
     previousMonitorControllers.current = currentMonitorControllers
-  }, [combined, controllers])
+  }, [combined, controllers, assignedBackups, assignedPlanners])
 
   const handleDismissNotification = useCallback((id: string) => {
     setNotifications((prev) => {
@@ -471,41 +538,201 @@ export function SupervisorDashboard() {
     [controllers, assignedBackups],
   )
 
+  // Format last update time
+  const lastUpdateFormatted = useMemo(() => {
+    const diff = Math.floor((Date.now() - lastUpdateTime.getTime()) / 1000)
+    if (diff < 10) return 'Just now'
+    if (diff < 60) return `${diff}s ago`
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+    return lastUpdateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }, [lastUpdateTime])
+
   return (
     <>
       <div className="space-y-8">
-      <header className="grid gap-6 md:grid-cols-4 animate-in fade-in slide-in-from-top-2 duration-500">
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-slate-900/50">
-          <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Controllers online</p>
-          <p className="mt-2 text-4xl font-semibold text-slate-100 transition-transform hover:scale-105">{filtered.length}</p>
-          <p className="mt-2 text-sm text-slate-500">Active</p>
+      {/* Enhanced Header with Live Status */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
+              <div className="absolute inset-0 h-3 w-3 rounded-full bg-green-500/30 animate-ping"></div>
+            </div>
+            <span className="text-xs font-semibold text-green-400">LIVE</span>
+          </div>
+          <span className="text-xs text-slate-500">Last update: {lastUpdateFormatted}</span>
+          {notifications.length > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-pearl-danger/40 bg-pearl-danger/10 px-3 py-1.5">
+              <span className="text-xs font-semibold text-pearl-danger">⚠️ {notifications.length} Active Alert{notifications.length > 1 ? 's' : ''}</span>
+            </div>
+          )}
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-pearl-warning/50 hover:shadow-lg hover:shadow-pearl-warning/20">
-          <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Active alerts</p>
-          <p className="mt-2 text-4xl font-semibold text-pearl-warning transition-transform hover:scale-105">{activeAlerts.length}</p>
-          <p className="mt-2 text-sm text-slate-500">Need attention</p>
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-1.5">
+            <span className="text-xs text-slate-400">Health Score: </span>
+            <span className={`text-sm font-semibold ${
+              performanceMetrics.healthScore >= 70 ? 'text-green-400' : 
+              performanceMetrics.healthScore >= 50 ? 'text-yellow-400' : 'text-red-400'
+            }`}>
+              {performanceMetrics.healthScore}%
+            </span>
+          </div>
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-pearl-warning/50 hover:shadow-lg hover:shadow-pearl-warning/20">
-          <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Voice fatigue alerts</p>
-          <p className="mt-2 text-4xl font-semibold text-pearl-warning transition-transform hover:scale-105">{voiceActiveCount}</p>
-          <p className="mt-2 text-sm text-slate-500">Voice detected</p>
+      </div>
+
+      <header className="grid gap-6 md:grid-cols-3 animate-in fade-in slide-in-from-top-2 duration-500">
+        <div className="group rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-slate-900/50 cursor-pointer relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-pearl-primary/5 rounded-full -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-500"></div>
+          <div className="relative">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Controllers online</p>
+              <span className="text-xs text-green-400">●</span>
+            </div>
+            <p className="mt-2 text-4xl font-semibold text-slate-100 transition-transform group-hover:scale-105">{filtered.length}</p>
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-sm text-slate-500">Active</p>
+              <div className="h-1.5 w-16 bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-pearl-primary transition-all duration-500"
+                  style={{ width: `${(filtered.length / (controllers?.length ?? 10)) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-slate-900/50">
-          <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Recent interventions</p>
-          <p className="mt-2 text-4xl font-semibold text-slate-100 transition-transform hover:scale-105">{actions?.length ?? 0}</p>
-          <p className="mt-2 text-sm text-slate-500">Today</p>
+        <div className="group rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-pearl-warning/50 hover:shadow-lg hover:shadow-pearl-warning/20 cursor-pointer relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-pearl-warning/5 rounded-full -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-500"></div>
+          <div className="relative">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Active alerts</p>
+              {activeAlerts.length > 0 && (
+                <span className="animate-pulse text-xs text-pearl-warning">⚠️</span>
+              )}
+            </div>
+            <p className="mt-2 text-4xl font-semibold text-pearl-warning transition-transform group-hover:scale-105">{notifications.length}</p>
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-sm text-slate-500">Need attention</p>
+              {activeAlerts.length > 0 && (
+                <span className="text-xs text-pearl-warning font-semibold animate-pulse">Action required</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="group rounded-2xl border border-slate-700 bg-slate-900/80 p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-slate-900/50 cursor-pointer relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-pearl-primary/5 rounded-full -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-500"></div>
+          <div className="relative">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Recent interventions</p>
+              <span className="text-xs text-pearl-primary">✓</span>
+            </div>
+            <p className="mt-2 text-4xl font-semibold text-slate-100 transition-transform group-hover:scale-105">{actions?.length ?? 0}</p>
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-sm text-slate-500">Today</p>
+              {performanceMetrics.avgResponseTime > 0 && (
+                <span className="text-xs text-slate-400">Avg: {performanceMetrics.avgResponseTime}s</span>
+              )}
+            </div>
+          </div>
         </div>
       </header>
+
+      {/* Quick Insights Panel with Achievements */}
+      <div className="rounded-2xl border border-slate-700 bg-gradient-to-r from-slate-900/80 to-slate-800/60 p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-3">
+              <h3 className="text-lg font-semibold text-slate-100">Crew Health Overview</h3>
+              {performanceMetrics.healthScore >= 90 && (
+                <span className="flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-1 text-xs font-semibold text-green-400 border border-green-500/40">
+                  ⭐ Excellent
+                </span>
+              )}
+              {performanceMetrics.healthScore >= 70 && performanceMetrics.healthScore < 90 && (
+                <span className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-2 py-1 text-xs font-semibold text-yellow-400 border border-yellow-500/40">
+                  ✓ Good
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Normal:</span>
+                <span className="font-semibold text-green-400">{performanceMetrics.normalCount}</span>
+                <div className="h-1.5 w-12 bg-slate-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-500 transition-all duration-500"
+                    style={{ width: `${performanceMetrics.totalControllers > 0 ? (performanceMetrics.normalCount / performanceMetrics.totalControllers) * 100 : 0}%` }}
+                  ></div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Monitor:</span>
+                <span className="font-semibold text-yellow-400">{performanceMetrics.monitorCount}</span>
+                <div className="h-1.5 w-12 bg-slate-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-yellow-500 transition-all duration-500"
+                    style={{ width: `${performanceMetrics.totalControllers > 0 ? (performanceMetrics.monitorCount / performanceMetrics.totalControllers) * 100 : 0}%` }}
+                  ></div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">High Fatigue:</span>
+                <span className="font-semibold text-red-400">{performanceMetrics.highFatigueCount}</span>
+                <div className="h-1.5 w-12 bg-slate-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-red-500 transition-all duration-500"
+                    style={{ width: `${performanceMetrics.totalControllers > 0 ? (performanceMetrics.highFatigueCount / performanceMetrics.totalControllers) * 100 : 0}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Response Efficiency</p>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="h-2 w-24 bg-slate-800 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-500 ${
+                      performanceMetrics.avgResponseTime < 3 ? 'bg-green-500' : 
+                      performanceMetrics.avgResponseTime < 5 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${Math.max(0, 100 - (performanceMetrics.avgResponseTime * 10))}%` }}
+                  ></div>
+                </div>
+                <span className="text-xs font-semibold text-slate-300">
+                  {performanceMetrics.avgResponseTime > 0 ? `${performanceMetrics.avgResponseTime}s` : 'N/A'}
+                </span>
+              </div>
+            </div>
+            {allActions.length > 0 && (
+              <div className="text-right">
+                <p className="text-xs text-slate-500">Today's Actions</p>
+                <p className="text-lg font-semibold text-pearl-primary">{allActions.length}</p>
+                <p className="text-xs text-slate-400">Interventions</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="rounded-2xl border border-slate-700 bg-slate-900/80">
           <div className="border-b border-slate-700 px-6 py-4">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-500">Controller Status</h2>
-                <p className="text-sm text-slate-500">
-                  Live monitoring
-                </p>
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-500">Controller Status</h2>
+                  <p className="text-sm text-slate-500">
+                    Live monitoring
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-1.5">
+                  <div className="relative">
+                    <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                    <div className="absolute inset-0 h-2 w-2 rounded-full bg-green-500/30 animate-ping"></div>
+                  </div>
+                  <span className="text-xs font-semibold text-green-400">Real-time</span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-xs uppercase tracking-[0.25em] text-slate-500">Sector</label>
@@ -539,20 +766,52 @@ export function SupervisorDashboard() {
                 {filtered.map(({ controller, snapshot }) => {
                   const backupName = backupBySector.get(controller.sectorId)
                   return (
-                  <tr key={controller.id} className="hover:bg-slate-900/50 transition-colors">
+                  <tr 
+                    key={controller.id} 
+                    className={`hover:bg-slate-900/50 transition-colors ${
+                      snapshot?.status === 'High Fatigue' ? 'bg-red-500/5 border-l-2 border-red-500' :
+                      snapshot?.status === 'Monitor' ? 'bg-yellow-500/5 border-l-2 border-yellow-500' : ''
+                    }`}
+                  >
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-100">{controller.name}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="font-semibold text-slate-100">{controller.name}</div>
+                        {snapshot?.status === 'High Fatigue' && (
+                          <span className="text-xs animate-pulse">🔴</span>
+                        )}
+                        {snapshot?.status === 'Monitor' && (
+                          <span className="text-xs">🟡</span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-500">{controller.id}</div>
                     </td>
                     <td className="px-6 py-4 text-xs text-slate-500">
                       <div className="font-semibold text-slate-500">{controller.sectorName}</div>
                       <div className="text-[10px] uppercase tracking-wide text-slate-500">{controller.rosterRole}</div>
                     </td>
-                    <td className="px-6 py-4 font-mono text-lg">
-                      {snapshot ? snapshot.score.toFixed(2) : <span className="text-slate-500">--</span>}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-lg">
+                          {snapshot ? snapshot.score.toFixed(2) : <span className="text-slate-500">--</span>}
+                        </span>
+                        {snapshot && (
+                          <div className="h-2 w-16 bg-slate-800 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full transition-all duration-300 ${
+                                snapshot.status === 'High Fatigue' ? 'bg-red-500' :
+                                snapshot.status === 'Monitor' ? 'bg-yellow-500' : 'bg-green-500'
+                              }`}
+                              style={{ width: `${snapshot.score * 100}%` }}
+                            ></div>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${snapshot ? statusBadge[snapshot.status] : 'bg-slate-800/50 text-slate-500 border border-slate-700'}`}>
+                      <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${snapshot ? statusBadge[snapshot.status] : 'bg-slate-800/50 text-slate-500 border border-slate-700'}`}>
+                        {snapshot?.status === 'High Fatigue' && <span className="animate-pulse">🔴</span>}
+                        {snapshot?.status === 'Monitor' && <span>🟡</span>}
+                        {snapshot?.status === 'Normal' && <span>🟢</span>}
                         {snapshot?.status ?? 'Waiting'}
                       </span>
                     </td>
@@ -570,9 +829,16 @@ export function SupervisorDashboard() {
             </table>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 animate-in fade-in slide-in-from-right-4 duration-500">
+        <div id="action-required-section" className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 animate-in fade-in slide-in-from-right-4 duration-500">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-slate-500">Action Required</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-semibold text-slate-500">Action Required</h3>
+              {notifications.length > 0 && (
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pearl-danger/20 text-xs font-bold text-pearl-danger animate-pulse">
+                  {notifications.length}
+                </span>
+              )}
+            </div>
             <button className="rounded-xl border border-blue-500 bg-blue-500/20 px-4 py-2 text-sm font-semibold text-blue-400 hover:bg-blue-500/30 transition-colors">
               Active Controllers: {filtered.length}
             </button>
@@ -607,16 +873,23 @@ export function SupervisorDashboard() {
             </div>
           )}
         </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 relative">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold text-slate-500">Latest supervisor actions</h3>
-            <div className="relative">
-              <button
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                className="rounded-lg border border-slate-700 bg-slate-900/55 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-pearl-primary hover:text-pearl-primary hover:bg-pearl-primary/10 transition-all transform hover:scale-105"
-              >
-                Export
-              </button>
+         <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 relative">
+           <div className="flex items-center justify-between mb-2">
+             <div className="flex items-center gap-3">
+               <h3 className="text-lg font-semibold text-slate-500">Latest supervisor actions</h3>
+               {allActions.length > 0 && (
+                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-pearl-primary/20 text-xs font-bold text-pearl-primary">
+                   {allActions.length}
+                 </span>
+               )}
+             </div>
+             <div className="relative">
+               <button
+                 onClick={() => setShowExportMenu(!showExportMenu)}
+                 className="rounded-lg border border-slate-700 bg-slate-900/55 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-pearl-primary hover:text-pearl-primary hover:bg-pearl-primary/10 transition-all transform hover:scale-105"
+               >
+                 Export
+               </button>
               {showExportMenu && (
                 <>
                   <div

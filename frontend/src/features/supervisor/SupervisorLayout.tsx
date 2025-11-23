@@ -1,5 +1,7 @@
-import { NavLink, Navigate, Outlet } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useSessionStore } from '../../store/useSessionStore'
+import { useQuery } from '@tanstack/react-query'
+import { fetchControllers, fetchSupervisorActions } from '../../services/dataService'
 import PearlLogo from '@media/PearlLogo.png'
 
 const navClasses = 'flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition'
@@ -7,6 +9,20 @@ const navClasses = 'flex items-center justify-between rounded-2xl px-4 py-3 text
 export function SupervisorLayout() {
   const supervisor = useSessionStore((state) => state.supervisor)
   const logout = useSessionStore((state) => state.logout)
+  const location = useLocation()
+  const isDashboard = location.pathname === '/supervisor'
+
+  const { data: controllers } = useQuery({
+    queryKey: ['controllers'],
+    queryFn: () => fetchControllers(),
+    enabled: isDashboard,
+  })
+
+  const { data: actions } = useQuery({
+    queryKey: ['supervisor-actions'],
+    queryFn: () => fetchSupervisorActions(),
+    enabled: isDashboard,
+  })
 
   if (!supervisor) {
     return <Navigate to="/" replace />
@@ -27,13 +43,24 @@ export function SupervisorLayout() {
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-300">
-                <div className="rounded-2xl bg-slate-800/45 px-4 py-3">
+                <div className="group rounded-2xl bg-gradient-to-br from-slate-800/45 to-slate-800/30 px-4 py-3 transition-all hover:from-slate-800/60 hover:to-slate-800/45 hover:scale-105 cursor-pointer border border-slate-700/50">
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Controllers</p>
-                  <p className="text-2xl font-semibold text-slate-100">24</p>
+                  <p className="text-2xl font-semibold text-slate-100 transition-transform group-hover:scale-110">
+                    {controllers?.length ?? '--'}
+                  </p>
+                  <div className="mt-1 h-1 w-full bg-slate-900 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-pearl-primary transition-all duration-500"
+                      style={{ width: `${controllers ? Math.min((controllers.length / 10) * 100, 100) : 0}%` }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="rounded-2xl bg-slate-800/45 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Alerts</p>
-                  <p className="text-2xl font-semibold text-pearl-primary">3</p>
+                <div className="group rounded-2xl bg-gradient-to-br from-pearl-primary/10 to-pearl-primary/5 px-4 py-3 transition-all hover:from-pearl-primary/20 hover:to-pearl-primary/10 hover:scale-105 cursor-pointer border border-pearl-primary/20">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Actions</p>
+                  <p className="text-2xl font-semibold text-pearl-primary transition-transform group-hover:scale-110">
+                    {actions?.length ?? 0}
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-500">Today</p>
                 </div>
               </div>
             </div>
