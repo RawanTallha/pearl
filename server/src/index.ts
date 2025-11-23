@@ -48,7 +48,7 @@ const supervisorProfile = {
 }
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000
-const simulationInterval = Number(process.env.SIM_INTERVAL_MS ?? 5000)
+const simulationInterval = Number(process.env.SIM_INTERVAL_MS ?? 15000)
 
 io.on('connection', (socket) => {
   socket.emit('fatigue:init', getCurrentFrame())

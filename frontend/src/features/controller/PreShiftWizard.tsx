@@ -393,7 +393,7 @@ export function PreShiftWizard() {
         <header className="flex flex-col gap-4 rounded-2xl bg-slate-900/70 p-6 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Pre-shift readiness sequence</p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-100">Good morning, {controller.name}</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-100">Welcome back, {controller.name}</h2>
             <p className="mt-2 text-sm text-slate-500">
               Four-step baseline refresh.
             </p>
@@ -543,7 +543,7 @@ export function PreShiftWizard() {
                 )}
                 {voiceSampleStatus === 'completed' && (
                   <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/55 p-5 text-sm text-slate-500">
-                    <p className="font-medium text-pearl-primary">Voice sample processed</p>
+                    <p className="font-medium text-slate-100">Voice sample processed</p>
                     <p className="mt-2 text-slate-500">{voiceSampleResult}</p>
                   </div>
                 )}
@@ -587,7 +587,7 @@ export function PreShiftWizard() {
                 )}
                 {reactionStatus === 'completed' && (
                   <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/55 p-5 text-sm text-slate-500">
-                    <p className="font-medium text-pearl-primary">Reaction challenge completed</p>
+                    <p className="font-medium text-slate-100">Reaction challenge completed</p>
                     <p className="mt-2 text-slate-500">{reactionResult}</p>
                   </div>
                 )}
@@ -598,7 +598,7 @@ export function PreShiftWizard() {
             {stepIndex === 3 && (
               <div className="mt-6 space-y-4">
                 <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
-                  <p className="text-sm font-semibold text-slate-500">How many hours did you sleep?</p>
+                  <p className="text-sm font-semibold text-slate-100">How many hours did you sleep?</p>
                   <div className="mt-4 flex gap-3">
                     <input
                       type="number"
@@ -620,7 +620,7 @@ export function PreShiftWizard() {
                 </div>
                 {healthCheckResult && (
                   <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5 text-sm text-slate-500">
-                    <p className="font-medium text-pearl-primary">Health check-in recorded</p>
+                    <p className="font-medium text-slate-100">Health check-in recorded</p>
                     <p className="mt-2 text-slate-500">{healthCheckResult}</p>
                   </div>
                 )}
@@ -681,7 +681,7 @@ export function PreShiftWizard() {
                 {isOnBreak 
                   ? 'Take a well-deserved break. Rest, hydrate, and recharge.'
                   : currentShift === 1
-                  ? 'Welcome to your first work period! You\'re ready to start your work.'
+                  ? 'Welcome to your shift period! You\'re ready to start your work.'
                   : `Starting work period ${currentShift} of 3. You've got this!`}
               </p>
 
@@ -744,7 +744,7 @@ export function PreShiftWizard() {
                    onClick={handleStartShift}
                    className="flex-1 rounded-xl border border-slate-400 bg-transparent px-6 py-3 text-lg font-semibold text-pearl-primary transition hover:bg-pearl-primary/10 shadow-lg"
                  >
-                   {isOnBreak ? 'Continue Break' : currentShift === 1 ? 'Start My First Work Period' : `Start Work Period ${currentShift}`}
+                   {isOnBreak ? 'Continue Break' : currentShift === 1 ? 'Start My Shift Period' : `Start Work Period ${currentShift}`}
                  </button>
                 <button
                   onClick={handleClosePopup}

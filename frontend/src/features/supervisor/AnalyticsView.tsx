@@ -109,7 +109,7 @@ export function AnalyticsView() {
       <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-500">Fatigue peak timeline</h3>
+            <h3 className="text-lg font-semibold text-slate-100">Fatigue peak timeline</h3>
             <p className="text-sm text-slate-500">
               Peak fatigue and end-of-shift patterns.
             </p>
@@ -167,7 +167,7 @@ export function AnalyticsView() {
         <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-slate-500">Per-employee fatigue peaks</h3>
+              <h3 className="text-lg font-semibold text-slate-100">Per-employee fatigue peaks</h3>
               <p className="text-sm text-slate-500">
                 Individual controller trends. Double-click for details.
               </p>

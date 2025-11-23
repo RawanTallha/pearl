@@ -13,6 +13,12 @@ const statusBadge: Record<FatigueSnapshot['status'], string> = {
   'High Fatigue': 'bg-pearl-danger/25 text-pearl-danger border border-pearl-danger/40',
 }
 
+const statusLabel: Record<FatigueSnapshot['status'], string> = {
+  Normal: 'Normal',
+  Monitor: 'Early fatigue',
+  'High Fatigue': 'High Fatigue',
+}
+
 export function SupervisorDashboard() {
   const queryClient = useQueryClient()
   
@@ -636,7 +642,7 @@ export function SupervisorDashboard() {
             <div className="mt-2 flex items-center justify-between">
               <p className="text-sm text-slate-500">Need attention</p>
               {activeAlerts.length > 0 && (
-                <span className="text-xs text-pearl-warning font-semibold animate-pulse">Action required</span>
+                <span className="text-xs text-slate-100 font-semibold animate-pulse">Action required</span>
               )}
             </div>
           </div>
@@ -835,7 +841,7 @@ export function SupervisorDashboard() {
                         {snapshot?.status === 'High Fatigue' && <span className="animate-pulse">🔴</span>}
                         {snapshot?.status === 'Monitor' && <span>🟡</span>}
                         {snapshot?.status === 'Normal' && <span>🟢</span>}
-                        {snapshot?.status ?? 'Waiting'}
+                        {snapshot?.status ? statusLabel[snapshot.status] : 'Waiting'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-xs text-slate-500">
@@ -855,7 +861,7 @@ export function SupervisorDashboard() {
         <div id="action-required-section" className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 animate-in fade-in slide-in-from-right-4 duration-500">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold text-slate-500">Action Required</h3>
+              <h3 className="text-lg font-semibold text-slate-100">Action Required</h3>
               {notifications.length > 0 && (
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-pearl-danger/20 text-xs font-bold text-pearl-danger animate-pulse">
                   {notifications.length}

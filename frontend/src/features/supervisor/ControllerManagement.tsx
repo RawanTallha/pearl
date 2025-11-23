@@ -120,19 +120,11 @@ export function ControllerManagement() {
       <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-500">Active controllers</h3>
+            <h3 className="text-lg font-semibold text-slate-100">Active controllers</h3>
             <p className="text-sm text-slate-500">
               Profile and baseline data stored per controller.
             </p>
           </div>
-          {!isFormOpen && (
-            <button
-              onClick={() => setIsFormOpen(true)}
-              className="rounded-xl border border-slate-400 bg-transparent px-5 py-3 text-sm font-semibold text-pearl-primary transition hover:bg-pearl-primary/10 transform hover:scale-105"
-            >
-              Add Controller
-            </button>
-          )}
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-700">
