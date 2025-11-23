@@ -11,34 +11,36 @@ interface FatigueNotificationProps {
   notifications: Notification[]
   onDismiss: (id: string) => void
   onNotifyBackup: (controllerId: string) => void
-  onCallPlanner: (controllerId: string) => void
+  onNotifyPlanner: (controllerId: string) => void
   onDelayMonitoring: (controllerId: string) => void
   availableBackups: (sectorId: string) => ControllerProfile[]
-  availablePlanners?: (sectorId: string) => ControllerProfile[]
+  availablePlanners: (controllerId: string) => ControllerProfile[]
   assignedBackups: Map<string, string>
+  assignedPlanners: Map<string, string>
   showDropdownForController: string | null
+  showPlannerDropdownForController: string | null
   selectedBackupForController: Map<string, string>
-  showPlannerDropdownForController?: string | null
-  selectedPlannerForController?: Map<string, string>
+  selectedPlannerForController: Map<string, string>
   onBackupSelection: (controllerId: string, backupId: string) => void
-  onPlannerSelection?: (controllerId: string, plannerId: string) => void
+  onPlannerSelection: (controllerId: string, plannerId: string) => void
   onConfirmBackup: (controllerId: string) => void
-  onConfirmPlanner?: (controllerId: string) => void
+  onConfirmPlanner: (controllerId: string) => void
   onDismissByController?: (controllerId: string) => void
 }
 
 export function FatigueNotification({ 
   notifications, 
   onDismiss, 
-  onNotifyBackup, 
-  onCallPlanner,
+  onNotifyBackup,
+  onNotifyPlanner,
   onDelayMonitoring,
   availableBackups,
   availablePlanners,
   assignedBackups,
+  assignedPlanners,
   showDropdownForController,
-  selectedBackupForController,
   showPlannerDropdownForController,
+  selectedBackupForController,
   selectedPlannerForController,
   onBackupSelection,
   onPlannerSelection,
@@ -56,14 +58,15 @@ export function FatigueNotification({
           notification={notification}
           onDismiss={onDismiss}
           onNotifyBackup={onNotifyBackup}
-          onCallPlanner={onCallPlanner}
+          onNotifyPlanner={onNotifyPlanner}
           onDelayMonitoring={onDelayMonitoring}
           availableBackups={availableBackups}
           availablePlanners={availablePlanners}
           assignedBackups={assignedBackups}
+          assignedPlanners={assignedPlanners}
           showDropdownForController={showDropdownForController}
-          selectedBackupForController={selectedBackupForController}
           showPlannerDropdownForController={showPlannerDropdownForController}
+          selectedBackupForController={selectedBackupForController}
           selectedPlannerForController={selectedPlannerForController}
           onBackupSelection={onBackupSelection}
           onPlannerSelection={onPlannerSelection}
@@ -80,34 +83,36 @@ interface NotificationItemProps {
   notification: Notification
   onDismiss: (id: string) => void
   onNotifyBackup: (controllerId: string) => void
-  onCallPlanner: (controllerId: string) => void
+  onNotifyPlanner: (controllerId: string) => void
   onDelayMonitoring: (controllerId: string) => void
   availableBackups: (sectorId: string) => ControllerProfile[]
-  availablePlanners?: (sectorId: string) => ControllerProfile[]
+  availablePlanners: (controllerId: string) => ControllerProfile[]
   assignedBackups: Map<string, string>
+  assignedPlanners: Map<string, string>
   showDropdownForController: string | null
+  showPlannerDropdownForController: string | null
   selectedBackupForController: Map<string, string>
-  showPlannerDropdownForController?: string | null
-  selectedPlannerForController?: Map<string, string>
+  selectedPlannerForController: Map<string, string>
   onBackupSelection: (controllerId: string, backupId: string) => void
-  onPlannerSelection?: (controllerId: string, plannerId: string) => void
+  onPlannerSelection: (controllerId: string, plannerId: string) => void
   onConfirmBackup: (controllerId: string) => void
-  onConfirmPlanner?: (controllerId: string) => void
+  onConfirmPlanner: (controllerId: string) => void
   onDismissByController?: (controllerId: string) => void
 }
 
 function NotificationItem({ 
   notification, 
   onDismiss, 
-  onNotifyBackup, 
-  onCallPlanner,
+  onNotifyBackup,
+  onNotifyPlanner,
   onDelayMonitoring,
   availableBackups,
   availablePlanners,
   assignedBackups,
+  assignedPlanners,
   showDropdownForController,
-  selectedBackupForController,
   showPlannerDropdownForController,
+  selectedBackupForController,
   selectedPlannerForController,
   onBackupSelection,
   onPlannerSelection,
@@ -135,19 +140,20 @@ function NotificationItem({
   }
 
   const availableBackupList = availableBackups(notification.controller.sectorId)
-  const availablePlannerList = availablePlanners ? availablePlanners(notification.controller.sectorId) : []
+  const availablePlannerList = availablePlanners(notification.controller.id)
   const isBackupDropdownOpen = showDropdownForController === notification.controller.id
   const isPlannerDropdownOpen = showPlannerDropdownForController === notification.controller.id
   const selectedBackupId = selectedBackupForController.get(notification.controller.id)
-  const selectedPlannerId = selectedPlannerForController?.get(notification.controller.id)
+  const selectedPlannerId = selectedPlannerForController.get(notification.controller.id)
   const hasAssignedBackup = assignedBackups.has(notification.controller.id)
+  const hasAssignedPlanner = assignedPlanners.has(notification.controller.id)
 
   const handleNotifyBackup = () => {
     onNotifyBackup(notification.controller.id)
   }
 
-  const handleCallPlanner = () => {
-    onCallPlanner(notification.controller.id)
+  const handleNotifyPlanner = () => {
+    onNotifyPlanner(notification.controller.id)
   }
 
   const handleDelayMonitoring = () => {
@@ -161,10 +167,8 @@ function NotificationItem({
   }
 
   const handleConfirmPlanner = () => {
-    if (onConfirmPlanner) {
-      onConfirmPlanner(notification.controller.id)
-      handleActionTaken()
-    }
+    onConfirmPlanner(notification.controller.id)
+    handleActionTaken()
   }
 
   // Determine if this is High Fatigue or Early Fatigue
@@ -174,8 +178,9 @@ function NotificationItem({
   const borderColor = isHighFatigue ? 'border-pearl-danger/60' : 'border-pearl-warning/60'
   const ringColor = isHighFatigue ? 'ring-pearl-danger/30' : 'ring-pearl-warning/30'
   const textColor = isHighFatigue ? 'text-pearl-danger' : 'text-pearl-warning'
-  // Update message format to match mockups: "[Controller] has [score] fatigue"
-  const titleText = `${notification.controller.name} has ${notification.snapshot.score.toFixed(1)} fatigue`
+  const titleText = isHighFatigue 
+    ? `${notification.controller.name} is showing high fatigue`
+    : `${notification.controller.name} is showing early fatigue`
   const statusLabel = isHighFatigue ? 'High Fatigue' : 'Early Fatigue'
 
   return (
@@ -184,14 +189,34 @@ function NotificationItem({
         isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
       }`}
     >
-      <div className={`rounded-2xl border-2 ${borderColor} bg-slate-900/80 p-6 shadow-2xl ring-2 ${ringColor}`}>
+      <div className={`rounded-2xl border-2 ${borderColor} bg-slate-900/80 p-6 shadow-2xl ring-2 ${ringColor} relative`}>
+        <button
+          onClick={handleActionTaken}
+          className="absolute top-4 right-4 rounded-lg p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-colors"
+          aria-label="Close notification"
+        >
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
         <div className="mb-4">
-          <div className="flex items-start justify-between mb-3">
+          <div className="flex items-start justify-between mb-3 pr-8">
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-slate-100 mb-1">
-                {titleText}
+                {notification.controller.name} has {notification.snapshot.score.toFixed(1)} fatigue
               </h3>
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-3">
                 <span className={`text-xs ${textColor} font-semibold`}>{statusLabel}</span>
               </div>
               {notification.snapshot.recommendation && (
@@ -201,52 +226,42 @@ function NotificationItem({
           </div>
         </div>
 
-        {!hasAssignedBackup && (
+        {!hasAssignedBackup && !hasAssignedPlanner && (
           <>
             {!isBackupDropdownOpen && !isPlannerDropdownOpen ? (
               <div className="flex flex-col gap-3">
-                {isHighFatigue ? (
-                  // High Fatigue: Call backup, Call planer, Monitor for 10 minute
+                {isHighFatigue && (
                   <>
                     <button
                       onClick={handleNotifyBackup}
-                      className={`w-full rounded-xl border border-slate-400 bg-pearl-danger/20 px-4 py-3 text-sm font-semibold ${textColor} hover:bg-pearl-danger/30 transition-colors`}
+                      className={`w-full rounded-xl border border-slate-400 ${isHighFatigue ? 'bg-pearl-danger/20' : 'bg-pearl-warning/20'} px-4 py-3 text-sm font-semibold ${textColor} ${isHighFatigue ? 'hover:bg-pearl-danger/30' : 'hover:bg-pearl-warning/30'} transition-colors`}
                     >
                       Call backup
                     </button>
                     <button
-                      onClick={handleCallPlanner}
-                      className={`w-full rounded-xl border border-slate-400 bg-pearl-danger/20 px-4 py-3 text-sm font-semibold ${textColor} hover:bg-pearl-danger/30 transition-colors`}
-                    >
-                      Call planer
-                    </button>
-                    <button
-                      onClick={handleDelayMonitoring}
-                      className="w-full rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-300 hover:border-slate-600 hover:bg-slate-800/50 transition-colors"
-                    >
-                      Monitor for 10 minute
-                    </button>
-                  </>
-                ) : (
-                  // Early Fatigue: Call planner, Monitor for 10 minutes
-                  <>
-                    <button
-                      onClick={handleCallPlanner}
-                      className={`w-full rounded-xl border border-slate-400 bg-pearl-warning/20 px-4 py-3 text-sm font-semibold ${textColor} hover:bg-pearl-warning/30 transition-colors`}
+                      onClick={handleNotifyPlanner}
+                      className={`w-full rounded-xl border border-slate-400 ${isHighFatigue ? 'bg-pearl-danger/20' : 'bg-pearl-warning/20'} px-4 py-3 text-sm font-semibold ${textColor} ${isHighFatigue ? 'hover:bg-pearl-danger/30' : 'hover:bg-pearl-warning/30'} transition-colors`}
                     >
                       Call planner
                     </button>
-                    <button
-                      onClick={handleDelayMonitoring}
-                      className="w-full rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-300 hover:border-slate-600 hover:bg-slate-800/50 transition-colors"
-                    >
-                      Monitor for 10 minutes
-                    </button>
                   </>
                 )}
+                {!isHighFatigue && (
+                  <button
+                    onClick={handleNotifyPlanner}
+                    className={`w-full rounded-xl border border-slate-400 bg-pearl-warning/20 px-4 py-3 text-sm font-semibold ${textColor} hover:bg-pearl-warning/30 transition-colors`}
+                  >
+                    Call planner
+                  </button>
+                )}
+                <button
+                  onClick={handleDelayMonitoring}
+                  className="w-full rounded-xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-300 hover:border-slate-600 hover:bg-slate-800/50 transition-colors"
+                >
+                  Monitor for 10 minutes
+                </button>
               </div>
             ) : isBackupDropdownOpen ? (
-              // Backup dropdown (for High Fatigue)
               <div className="space-y-3">
                 <select
                   value={selectedBackupId || ''}
@@ -269,12 +284,11 @@ function NotificationItem({
                   </button>
                 )}
               </div>
-            ) : isPlannerDropdownOpen ? (
-              // Planner dropdown (for both High and Early Fatigue)
+            ) : (
               <div className="space-y-3">
                 <select
                   value={selectedPlannerId || ''}
-                  onChange={(e) => onPlannerSelection && onPlannerSelection(notification.controller.id, e.target.value)}
+                  onChange={(e) => onPlannerSelection(notification.controller.id, e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
                 >
                   <option value="">Choose from planner list</option>
@@ -284,7 +298,7 @@ function NotificationItem({
                     </option>
                   ))}
                 </select>
-                {selectedPlannerId && onConfirmPlanner && (
+                {selectedPlannerId && (
                   <button
                     onClick={handleConfirmPlanner}
                     className="w-full rounded-xl border border-slate-400 bg-pearl-primary/20 px-4 py-3 text-sm font-semibold text-pearl-primary hover:bg-pearl-primary/30 transition-colors"
@@ -293,13 +307,13 @@ function NotificationItem({
                   </button>
                 )}
               </div>
-            ) : null}
+            )}
           </>
         )}
-        {hasAssignedBackup && (
+        {(hasAssignedBackup || hasAssignedPlanner) && (
           <div className="rounded-lg border border-pearl-success/40 bg-pearl-success/10 px-4 py-3">
             <p className="text-sm text-pearl-success font-semibold">
-              ✓ Backup controller already assigned
+              ✓ {hasAssignedBackup ? 'Backup' : 'Planner'} controller already assigned
             </p>
             <button
               onClick={() => {

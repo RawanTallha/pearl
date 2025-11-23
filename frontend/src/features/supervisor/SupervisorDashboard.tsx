@@ -36,11 +36,14 @@ export function SupervisorDashboard() {
   >([])
   const previousHighFatigueControllers = useRef<Set<string>>(new Set())
   const previousMonitorControllers = useRef<Set<string>>(new Set())
+  const lastNotificationTime = useRef<Map<string, number>>(new Map()) // Track last notification time per controller
+  const existingNotificationIds = useRef<Set<string>>(new Set()) // Track existing notification controller IDs
   const [assignedBackups, setAssignedBackups] = useState<Map<string, string>>(new Map())
+  const [assignedPlanners, setAssignedPlanners] = useState<Map<string, string>>(new Map())
   const [localActions, setLocalActions] = useState<SupervisorAction[]>([])
   const [showDropdownForController, setShowDropdownForController] = useState<string | null>(null)
-  const [selectedBackupForController, setSelectedBackupForController] = useState<Map<string, string>>(new Map())
   const [showPlannerDropdownForController, setShowPlannerDropdownForController] = useState<string | null>(null)
+  const [selectedBackupForController, setSelectedBackupForController] = useState<Map<string, string>>(new Map())
   const [selectedPlannerForController, setSelectedPlannerForController] = useState<Map<string, string>>(new Map())
   const [actionsPanelExpanded, setActionsPanelExpanded] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
@@ -130,34 +133,59 @@ export function SupervisorDashboard() {
     const currentHighFatigueControllers = new Set<string>()
     const currentMonitorControllers = new Set<string>()
     const newNotifications: Array<{ id: string; controller: ControllerProfile; snapshot: FatigueSnapshot }> = []
+    const MIN_TIME_BETWEEN_NOTIFICATIONS = 5 * 60 * 1000 // 5 minutes in milliseconds
 
     combined.forEach(({ controller, snapshot }) => {
       if (snapshot?.status === 'High Fatigue') {
         currentHighFatigueControllers.add(controller.id)
 
         // Only show notification if this controller wasn't in high fatigue before
+        // AND enough time has passed since last notification (if any)
         if (!previousHighFatigueControllers.current.has(controller.id)) {
-          newNotifications.push({
-            id: `${controller.id}-${Date.now()}`,
-            controller,
-            snapshot,
-          })
+          const lastNotification = lastNotificationTime.current.get(controller.id)
+          const now = Date.now()
+          
+          // Check if enough time has passed (or no previous notification)
+          if (!lastNotification || (now - lastNotification) >= MIN_TIME_BETWEEN_NOTIFICATIONS) {
+            // Check if notification already exists for this controller
+            if (!existingNotificationIds.current.has(controller.id)) {
+              newNotifications.push({
+                id: `${controller.id}-${now}`,
+                controller,
+                snapshot,
+              })
+              lastNotificationTime.current.set(controller.id, now)
+              existingNotificationIds.current.add(controller.id)
+            }
+          }
         }
       } else if (snapshot?.status === 'Monitor') {
         currentMonitorControllers.add(controller.id)
 
         // Only show notification if this controller wasn't in monitor status before
+        // AND enough time has passed since last notification (if any)
         if (!previousMonitorControllers.current.has(controller.id)) {
-          newNotifications.push({
-            id: `${controller.id}-${Date.now()}`,
-            controller,
-            snapshot,
-          })
+          const lastNotification = lastNotificationTime.current.get(controller.id)
+          const now = Date.now()
+          
+          // Check if enough time has passed (or no previous notification)
+          if (!lastNotification || (now - lastNotification) >= MIN_TIME_BETWEEN_NOTIFICATIONS) {
+            // Check if notification already exists for this controller
+            if (!existingNotificationIds.current.has(controller.id)) {
+              newNotifications.push({
+                id: `${controller.id}-${now}`,
+                controller,
+                snapshot,
+              })
+              lastNotificationTime.current.set(controller.id, now)
+              existingNotificationIds.current.add(controller.id)
+            }
+          }
         }
       }
     })
 
-    // Re-add backups for controllers that are no longer in high fatigue
+    // Re-add backups/planners for controllers that are no longer in high fatigue
     const controllersThatReturned = Array.from(previousHighFatigueControllers.current).filter(
       (controllerId) => !currentHighFatigueControllers.has(controllerId)
     )
@@ -169,8 +197,21 @@ export function SupervisorDashboard() {
         })
         return newMap
       })
-      // Close dropdown if it was open for a controller that returned
+      setAssignedPlanners((prev) => {
+        const newMap = new Map(prev)
+        controllersThatReturned.forEach((controllerId) => {
+          newMap.delete(controllerId)
+        })
+        return newMap
+      })
+      // Close dropdowns if they were open for a controller that returned
       setShowDropdownForController((prev) => {
+        if (prev && controllersThatReturned.includes(prev)) {
+          return null
+        }
+        return prev
+      })
+      setShowPlannerDropdownForController((prev) => {
         if (prev && controllersThatReturned.includes(prev)) {
           return null
         }
@@ -183,30 +224,50 @@ export function SupervisorDashboard() {
         })
         return newMap
       })
+      setSelectedPlannerForController((prev) => {
+        const newMap = new Map(prev)
+        controllersThatReturned.forEach((controllerId) => {
+          newMap.delete(controllerId)
+        })
+        return newMap
+      })
     }
 
-    // Add new notifications
+    // Add new notifications - notifications persist until supervisor takes action
     if (newNotifications.length > 0) {
-      setNotifications((prev) => [...prev, ...newNotifications])
+      setNotifications((prev) => {
+        // Deduplicate by controller ID - don't add if notification already exists
+        const existingControllerIds = new Set(prev.map(n => n.controller.id))
+        const uniqueNew = newNotifications.filter(n => !existingControllerIds.has(n.controller.id))
+        return [...prev, ...uniqueNew]
+      })
     }
 
-    // Remove notifications for controllers that are no longer in high fatigue or monitor status
-    const allCurrentFatigueControllers = new Set([...currentHighFatigueControllers, ...currentMonitorControllers])
-    setNotifications((prev) =>
-      prev.filter((notif) => allCurrentFatigueControllers.has(notif.controller.id)),
-    )
-
+    // DO NOT automatically remove notifications when status changes
+    // Notifications should persist until supervisor takes action
+    // Only update tracking sets for next comparison
     previousHighFatigueControllers.current = currentHighFatigueControllers
     previousMonitorControllers.current = currentMonitorControllers
   }, [combined, controllers])
 
   const handleDismissNotification = useCallback((id: string) => {
-    setNotifications((prev) => prev.filter((notif) => notif.id !== id))
+    setNotifications((prev) => {
+      const filtered = prev.filter((notif) => notif.id !== id)
+      // Update ref to track removed notifications
+      const remainingControllerIds = new Set(filtered.map(n => n.controller.id))
+      existingNotificationIds.current = remainingControllerIds
+      return filtered
+    })
   }, [])
 
   // Also add a handler to dismiss by controller ID for when backup is already assigned
   const handleDismissNotificationByController = useCallback((controllerId: string) => {
-    setNotifications((prev) => prev.filter((notif) => notif.controller.id !== controllerId))
+    setNotifications((prev) => {
+      const filtered = prev.filter((notif) => notif.controller.id !== controllerId)
+      // Update ref to track removed notifications
+      existingNotificationIds.current.delete(controllerId)
+      return filtered
+    })
   }, [])
 
   // Get available backups for a sector (excluding assigned ones)
@@ -221,15 +282,16 @@ export function SupervisorDashboard() {
     [sectorRosters, assignedBackups],
   )
 
-  // Get available planners for a sector (using all controllers as potential planners)
+  // Get available planners (all controllers except the one with fatigue)
   const getAvailablePlanners = useCallback(
-    (sectorId: string): ControllerProfile[] => {
+    (controllerId: string): ControllerProfile[] => {
       if (!controllers) return []
-      // For now, return all controllers in the same sector as potential planners
-      // You can customize this logic based on your requirements
-      return controllers.filter((controller) => controller.sectorId === sectorId)
+      const assignedPlannerIds = Array.from(assignedPlanners.values())
+      return controllers.filter(
+        (controller) => controller.id !== controllerId && !assignedPlannerIds.includes(controller.id)
+      )
     },
-    [controllers],
+    [controllers, assignedPlanners],
   )
 
   // Handle backup assignment
@@ -237,23 +299,10 @@ export function SupervisorDashboard() {
     setShowDropdownForController(controllerId)
   }, [])
 
-  // Handle planner call
-  const handleCallPlanner = useCallback((controllerId: string) => {
-    setShowPlannerDropdownForController(controllerId)
-  }, [])
-
   const handleBackupSelection = useCallback((controllerId: string, backupId: string) => {
     setSelectedBackupForController((prev) => {
       const newMap = new Map(prev)
       newMap.set(controllerId, backupId)
-      return newMap
-    })
-  }, [])
-
-  const handlePlannerSelection = useCallback((controllerId: string, plannerId: string) => {
-    setSelectedPlannerForController((prev) => {
-      const newMap = new Map(prev)
-      newMap.set(controllerId, plannerId)
       return newMap
     })
   }, [])
@@ -294,10 +343,27 @@ export function SupervisorDashboard() {
       })
 
       // Dismiss notification for this controller
-      setNotifications((prev) => prev.filter((notif) => notif.controller.id !== controllerId))
+      setNotifications((prev) => {
+        const filtered = prev.filter((notif) => notif.controller.id !== controllerId)
+        existingNotificationIds.current.delete(controllerId)
+        return filtered
+      })
     },
     [selectedBackupForController, controllers, sectorRosters],
   )
+
+  // Handle planner assignment
+  const handleNotifyPlanner = useCallback((controllerId: string) => {
+    setShowPlannerDropdownForController(controllerId)
+  }, [])
+
+  const handlePlannerSelection = useCallback((controllerId: string, plannerId: string) => {
+    setSelectedPlannerForController((prev) => {
+      const newMap = new Map(prev)
+      newMap.set(controllerId, plannerId)
+      return newMap
+    })
+  }, [])
 
   const handleConfirmPlanner = useCallback(
     (controllerId: string) => {
@@ -308,12 +374,19 @@ export function SupervisorDashboard() {
       const planner = controllers.find((c) => c.id === plannerId)
       if (!controller || !planner) return
 
+      // Add to assigned planners
+      setAssignedPlanners((prev) => {
+        const newMap = new Map(prev)
+        newMap.set(controllerId, plannerId)
+        return newMap
+      })
+
       // Add to local actions
-      const actionMessage = `Planner called for Controller: ${controller.name} (${controller.id}) — Planner: ${planner.name} (${planner.id})`
+      const actionMessage = `Planner assigned for Controller: ${controller.name} (${controller.id}) — Planner: ${planner.name} (${planner.id})`
       const newAction: SupervisorAction = {
         id: `local-${Date.now()}-${controllerId}-planner`,
         controllerId,
-        action: 'monitor',
+        action: 'backup_assigned', // Using same action type
         message: actionMessage,
         createdAt: new Date().toISOString(),
       }
@@ -328,7 +401,11 @@ export function SupervisorDashboard() {
       })
 
       // Dismiss notification for this controller
-      setNotifications((prev) => prev.filter((notif) => notif.controller.id !== controllerId))
+      setNotifications((prev) => {
+        const filtered = prev.filter((notif) => notif.controller.id !== controllerId)
+        existingNotificationIds.current.delete(controllerId)
+        return filtered
+      })
     },
     [selectedPlannerForController, controllers],
   )
@@ -385,7 +462,11 @@ export function SupervisorDashboard() {
       setLocalActions((prev) => [...prev, newAction])
 
       // Dismiss notification for this controller
-      setNotifications((prev) => prev.filter((notif) => notif.controller.id !== controllerId))
+      setNotifications((prev) => {
+        const filtered = prev.filter((notif) => notif.controller.id !== controllerId)
+        existingNotificationIds.current.delete(controllerId)
+        return filtered
+      })
     },
     [controllers, assignedBackups],
   )
@@ -490,31 +571,37 @@ export function SupervisorDashboard() {
           </div>
         </div>
         <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 animate-in fade-in slide-in-from-right-4 duration-500">
-          <h3 className="text-lg font-semibold text-slate-500 mb-2">Action Required</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold text-slate-500">Action Required</h3>
+            <button className="rounded-xl border border-blue-500 bg-blue-500/20 px-4 py-2 text-sm font-semibold text-blue-400 hover:bg-blue-500/30 transition-colors">
+              Active Controllers: {filtered.length}
+            </button>
+          </div>
           <p className="text-sm text-slate-500 mb-4">
             Immediate attention needed
           </p>
-          {notifications.length > 0 ? (
-            <FatigueNotification 
-              notifications={notifications} 
-              onDismiss={handleDismissNotification}
-              onNotifyBackup={handleNotifyBackup}
-              onCallPlanner={handleCallPlanner}
-              onDelayMonitoring={handleDelayMonitoring}
-              availableBackups={getAvailableBackups}
-              availablePlanners={getAvailablePlanners}
-              assignedBackups={assignedBackups}
-              showDropdownForController={showDropdownForController}
-              selectedBackupForController={selectedBackupForController}
-              showPlannerDropdownForController={showPlannerDropdownForController}
-              selectedPlannerForController={selectedPlannerForController}
-              onBackupSelection={handleBackupSelection}
-              onPlannerSelection={handlePlannerSelection}
-              onConfirmBackup={handleConfirmBackup}
-              onConfirmPlanner={handleConfirmPlanner}
-              onDismissByController={handleDismissNotificationByController}
-            />
-          ) : (
+           {notifications.length > 0 ? (
+             <FatigueNotification 
+               notifications={notifications} 
+               onDismiss={handleDismissNotification}
+               onNotifyBackup={handleNotifyBackup}
+               onNotifyPlanner={handleNotifyPlanner}
+               onDelayMonitoring={handleDelayMonitoring}
+               availableBackups={getAvailableBackups}
+               availablePlanners={getAvailablePlanners}
+               assignedBackups={assignedBackups}
+               assignedPlanners={assignedPlanners}
+               showDropdownForController={showDropdownForController}
+               showPlannerDropdownForController={showPlannerDropdownForController}
+               selectedBackupForController={selectedBackupForController}
+               selectedPlannerForController={selectedPlannerForController}
+               onBackupSelection={handleBackupSelection}
+               onPlannerSelection={handlePlannerSelection}
+               onConfirmBackup={handleConfirmBackup}
+               onConfirmPlanner={handleConfirmPlanner}
+               onDismissByController={handleDismissNotificationByController}
+             />
+           ) : (
             <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
               <p className="text-sm text-slate-500">No controllers require immediate action.</p>
             </div>
