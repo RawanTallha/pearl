@@ -57,6 +57,13 @@ export function FatigueEmployeeFilters({
     }
   }
 
+  const handleDeselectAll = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onControllerChange([])
+    // Keep dropdown open so user can see all controllers are now unchecked
+  }
+
   const handleApplyDateRange = () => {
     const from = new Date(fromDate)
     const to = new Date(toDate)
@@ -129,6 +136,22 @@ export function FatigueEmployeeFilters({
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="max-h-64 overflow-y-auto p-2">
+                {/* Deselect All Button */}
+                {selectedControllerIds.length > 0 && (
+                  <div className="mb-2 border-b border-slate-700 pb-2">
+                    <button
+                      type="button"
+                      onClick={handleDeselectAll}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                      }}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900/50 px-2 py-1 text-xs text-slate-500 hover:bg-slate-900/60 hover:text-slate-300 transition-colors"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                )}
                 {/* Controller List with Checkboxes */}
                 <div className="space-y-1">
                   {controllers.map((controller) => (

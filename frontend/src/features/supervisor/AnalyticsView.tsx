@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { fetchShiftSummaries, fetchControllers } from '../../services/dataService'
@@ -37,6 +37,9 @@ export function AnalyticsView() {
     return []
   })
 
+  // Track if we've initialized controllers (to prevent re-selecting when user deselects all)
+  const hasInitialized = useRef(false)
+
   // Popup state
   const [popupState, setPopupState] = useState<{
     isOpen: boolean
@@ -50,10 +53,11 @@ export function AnalyticsView() {
     date: '',
   })
 
-  // Initialize selected controllers when controllers load
+  // Initialize selected controllers only once when controllers first load
   useEffect(() => {
-    if (controllers && selectedControllerIds.length === 0) {
+    if (controllers && !hasInitialized.current && selectedControllerIds.length === 0) {
       setSelectedControllerIds(controllers.map((c) => c.id))
+      hasInitialized.current = true
     }
   }, [controllers, selectedControllerIds.length])
 
