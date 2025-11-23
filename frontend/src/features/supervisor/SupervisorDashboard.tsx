@@ -458,13 +458,13 @@ export function SupervisorDashboard() {
                   <div className="absolute right-0 top-full mt-2 z-20 rounded-xl border border-slate-700 bg-slate-950/70 shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
                       onClick={handleExportPDF}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50 hover:text-pearl-primary transition-colors"
+                      className="w-full border-b border-slate-700 px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50 hover:text-pearl-primary transition-colors"
                     >
                       Export as PDF
                     </button>
                     <button
                       onClick={handleExportExcel}
-                      className="w-full px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50 hover:text-pearl-primary border-t border-slate-700 transition-colors"
+                      className="w-full px-4 py-2 text-left text-sm text-slate-500 hover:bg-slate-900/50 hover:text-pearl-primary transition-colors"
                     >
                       Export as Excel
                     </button>

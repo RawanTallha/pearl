@@ -290,7 +290,7 @@ export function FatigueWeeklyReportPopup({
           </h2>
           <button
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-500 hover:bg-slate-900/50 hover:text-slate-100"
+            className="rounded-xl border border-slate-400 p-2 text-slate-500 hover:bg-slate-900/50 hover:text-slate-100"
             aria-label="Close"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -403,7 +403,7 @@ export function FatigueWeeklyReportPopup({
             </button>
             <button
               onClick={handleExportPDF}
-              className="rounded-xl bg-pearl-primary px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-300"
+              className="rounded-xl border border-slate-400 bg-pearl-primary px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-300"
             >
               Export report as PDF
             </button>

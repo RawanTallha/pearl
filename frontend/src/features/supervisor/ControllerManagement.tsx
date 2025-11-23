@@ -272,7 +272,7 @@ export function ControllerManagement() {
               </button>
               <button
                 type="submit"
-                className="rounded-xl bg-pearl-primary px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-sky-300 transition-all transform hover:scale-105 shadow-lg shadow-pearl-primary/30"
+                className="rounded-xl border border-slate-400 bg-pearl-primary px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-sky-300 transition-all transform hover:scale-105 shadow-lg shadow-pearl-primary/30"
               >
                 Save controller
               </button>

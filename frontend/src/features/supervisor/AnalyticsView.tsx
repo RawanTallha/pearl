@@ -119,7 +119,7 @@ export function AnalyticsView() {
             </button>
             <button 
               onClick={handleExportPDF}
-              className="rounded-xl bg-pearl-primary px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-300 transition-all transform hover:scale-105 shadow-lg shadow-pearl-primary/30"
+              className="rounded-xl border border-slate-400 bg-pearl-primary px-4 py-2 text-xs font-semibold text-white hover:bg-sky-300 transition-all transform hover:scale-105 shadow-lg shadow-pearl-primary/30"
             >
               Export PDF
             </button>
@@ -177,8 +177,8 @@ export function AnalyticsView() {
               </button>
               <button
                 onClick={handleExportPDF}
-                className="rounded-xl bg-pearl-primary px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-300 transition-all transform hover:scale-105 shadow-lg shadow-pearl-primary/30"
-              >
+                className="rounded-xl border border-slate-400 bg-pearl-primary px-4 py-2 text-xs font-semibold text-white hover:bg-sky-300 transition-all transform hover:scale-105 shadow-lg shadow-pearl-primary/30"
+                >
                 Export PDF
               </button>
             </div>

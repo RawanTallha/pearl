@@ -155,7 +155,7 @@ function NotificationItem({
               <div className="flex flex-col gap-3">
                 <button
                   onClick={handleNotifyBackup}
-                  className="w-full rounded-xl bg-pearl-danger/20 px-4 py-3 text-sm font-semibold text-pearl-danger hover:bg-pearl-danger/30 transition-colors"
+                  className="w-full rounded-xl border border-slate-400 bg-pearl-danger/20 px-4 py-3 text-sm font-semibold text-pearl-danger hover:bg-pearl-danger/30 transition-colors"
                 >
                   Notify Backup Controller
                 </button>
@@ -183,7 +183,7 @@ function NotificationItem({
                 {selectedBackupId && (
                   <button
                     onClick={handleConfirmBackup}
-                    className="w-full rounded-xl bg-pearl-primary/20 px-4 py-3 text-sm font-semibold text-pearl-primary hover:bg-pearl-primary/30 transition-colors"
+                    className="w-full rounded-xl border border-slate-400 bg-pearl-primary/20 px-4 py-3 text-sm font-semibold text-pearl-primary hover:bg-pearl-primary/30 transition-colors"
                   >
                     Confirm Backup Assignment
                   </button>

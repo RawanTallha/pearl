@@ -57,18 +57,6 @@ export function FatigueEmployeeFilters({
     }
   }
 
-  const handleSelectAll = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onControllerChange(controllers.map((c) => c.id))
-  }
-
-  const handleDeselectAll = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onControllerChange([])
-  }
-
   const handleApplyDateRange = () => {
     const from = new Date(fromDate)
     const to = new Date(toDate)
@@ -108,7 +96,7 @@ export function FatigueEmployeeFilters({
           />
           <button
             onClick={handleApplyDateRange}
-            className="rounded-xl bg-pearl-primary px-4 py-1.5 text-xs font-semibold text-slate-950 hover:bg-sky-300"
+            className="rounded-xl border border-slate-400 bg-pearl-primary px-4 py-1.5 text-xs font-semibold text-slate-950 hover:bg-sky-300"
           >
             Apply
           </button>
@@ -141,32 +129,6 @@ export function FatigueEmployeeFilters({
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="max-h-64 overflow-y-auto p-2">
-                {/* Select All / Deselect All */}
-                <div className="mb-2 flex gap-2 border-b border-slate-700 pb-2">
-                  <button
-                    type="button"
-                    onClick={handleSelectAll}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }}
-                    className="flex-1 rounded-lg border border-slate-700 bg-slate-900/50 px-2 py-1 text-xs text-slate-500 hover:bg-slate-900/60"
-                  >
-                    Select All
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeselectAll}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }}
-                    className="flex-1 rounded-lg border border-slate-700 bg-slate-900/50 px-2 py-1 text-xs text-slate-500 hover:bg-slate-900/60"
-                  >
-                    Deselect All
-                  </button>
-                </div>
-
                 {/* Controller List with Checkboxes */}
                 <div className="space-y-1">
                   {controllers.map((controller) => (
