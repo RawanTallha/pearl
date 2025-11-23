@@ -407,12 +407,6 @@ export function SupervisorDashboard() {
                           Notify backup: {backupName}
                         </p>
                       ) : null}
-                      <button
-                        onClick={() => window.open(`/supervisor/controller/${controller.id}/monitor`, '_blank')}
-                        className="mt-2 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-pearl-primary hover:text-pearl-primary hover:bg-pearl-primary/10 transition-all transform hover:scale-105"
-                      >
-                        View Performance
-                      </button>
                     </td>
                   </tr>
                 )})}
