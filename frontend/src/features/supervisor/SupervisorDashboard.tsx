@@ -35,10 +35,13 @@ export function SupervisorDashboard() {
     Array<{ id: string; controller: ControllerProfile; snapshot: FatigueSnapshot }>
   >([])
   const previousHighFatigueControllers = useRef<Set<string>>(new Set())
+  const previousMonitorControllers = useRef<Set<string>>(new Set())
   const [assignedBackups, setAssignedBackups] = useState<Map<string, string>>(new Map())
   const [localActions, setLocalActions] = useState<SupervisorAction[]>([])
   const [showDropdownForController, setShowDropdownForController] = useState<string | null>(null)
   const [selectedBackupForController, setSelectedBackupForController] = useState<Map<string, string>>(new Map())
+  const [showPlannerDropdownForController, setShowPlannerDropdownForController] = useState<string | null>(null)
+  const [selectedPlannerForController, setSelectedPlannerForController] = useState<Map<string, string>>(new Map())
   const [actionsPanelExpanded, setActionsPanelExpanded] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [sectorRosterExpanded, setSectorRosterExpanded] = useState(false)
@@ -120,11 +123,12 @@ export function SupervisorDashboard() {
       )
   }, [controllers, voiceLatest])
 
-  // Monitor for high fatigue controllers and trigger notifications
+  // Monitor for high fatigue and early fatigue (monitor) controllers and trigger notifications
   useEffect(() => {
     if (!controllers) return
 
     const currentHighFatigueControllers = new Set<string>()
+    const currentMonitorControllers = new Set<string>()
     const newNotifications: Array<{ id: string; controller: ControllerProfile; snapshot: FatigueSnapshot }> = []
 
     combined.forEach(({ controller, snapshot }) => {
@@ -133,6 +137,17 @@ export function SupervisorDashboard() {
 
         // Only show notification if this controller wasn't in high fatigue before
         if (!previousHighFatigueControllers.current.has(controller.id)) {
+          newNotifications.push({
+            id: `${controller.id}-${Date.now()}`,
+            controller,
+            snapshot,
+          })
+        }
+      } else if (snapshot?.status === 'Monitor') {
+        currentMonitorControllers.add(controller.id)
+
+        // Only show notification if this controller wasn't in monitor status before
+        if (!previousMonitorControllers.current.has(controller.id)) {
           newNotifications.push({
             id: `${controller.id}-${Date.now()}`,
             controller,
@@ -175,12 +190,14 @@ export function SupervisorDashboard() {
       setNotifications((prev) => [...prev, ...newNotifications])
     }
 
-    // Remove notifications for controllers that are no longer in high fatigue
+    // Remove notifications for controllers that are no longer in high fatigue or monitor status
+    const allCurrentFatigueControllers = new Set([...currentHighFatigueControllers, ...currentMonitorControllers])
     setNotifications((prev) =>
-      prev.filter((notif) => currentHighFatigueControllers.has(notif.controller.id)),
+      prev.filter((notif) => allCurrentFatigueControllers.has(notif.controller.id)),
     )
 
     previousHighFatigueControllers.current = currentHighFatigueControllers
+    previousMonitorControllers.current = currentMonitorControllers
   }, [combined, controllers])
 
   const handleDismissNotification = useCallback((id: string) => {
@@ -204,15 +221,39 @@ export function SupervisorDashboard() {
     [sectorRosters, assignedBackups],
   )
 
+  // Get available planners for a sector (using all controllers as potential planners)
+  const getAvailablePlanners = useCallback(
+    (sectorId: string): ControllerProfile[] => {
+      if (!controllers) return []
+      // For now, return all controllers in the same sector as potential planners
+      // You can customize this logic based on your requirements
+      return controllers.filter((controller) => controller.sectorId === sectorId)
+    },
+    [controllers],
+  )
+
   // Handle backup assignment
   const handleNotifyBackup = useCallback((controllerId: string) => {
     setShowDropdownForController(controllerId)
+  }, [])
+
+  // Handle planner call
+  const handleCallPlanner = useCallback((controllerId: string) => {
+    setShowPlannerDropdownForController(controllerId)
   }, [])
 
   const handleBackupSelection = useCallback((controllerId: string, backupId: string) => {
     setSelectedBackupForController((prev) => {
       const newMap = new Map(prev)
       newMap.set(controllerId, backupId)
+      return newMap
+    })
+  }, [])
+
+  const handlePlannerSelection = useCallback((controllerId: string, plannerId: string) => {
+    setSelectedPlannerForController((prev) => {
+      const newMap = new Map(prev)
+      newMap.set(controllerId, plannerId)
       return newMap
     })
   }, [])
@@ -256,6 +297,40 @@ export function SupervisorDashboard() {
       setNotifications((prev) => prev.filter((notif) => notif.controller.id !== controllerId))
     },
     [selectedBackupForController, controllers, sectorRosters],
+  )
+
+  const handleConfirmPlanner = useCallback(
+    (controllerId: string) => {
+      const plannerId = selectedPlannerForController.get(controllerId)
+      if (!plannerId || !controllers) return
+
+      const controller = controllers.find((c) => c.id === controllerId)
+      const planner = controllers.find((c) => c.id === plannerId)
+      if (!controller || !planner) return
+
+      // Add to local actions
+      const actionMessage = `Planner called for Controller: ${controller.name} (${controller.id}) — Planner: ${planner.name} (${planner.id})`
+      const newAction: SupervisorAction = {
+        id: `local-${Date.now()}-${controllerId}-planner`,
+        controllerId,
+        action: 'monitor',
+        message: actionMessage,
+        createdAt: new Date().toISOString(),
+      }
+      setLocalActions((prev) => [...prev, newAction])
+
+      // Reset UI state
+      setShowPlannerDropdownForController(null)
+      setSelectedPlannerForController((prev) => {
+        const newMap = new Map(prev)
+        newMap.delete(controllerId)
+        return newMap
+      })
+
+      // Dismiss notification for this controller
+      setNotifications((prev) => prev.filter((notif) => notif.controller.id !== controllerId))
+    },
+    [selectedPlannerForController, controllers],
   )
 
 
@@ -424,13 +499,19 @@ export function SupervisorDashboard() {
               notifications={notifications} 
               onDismiss={handleDismissNotification}
               onNotifyBackup={handleNotifyBackup}
+              onCallPlanner={handleCallPlanner}
               onDelayMonitoring={handleDelayMonitoring}
               availableBackups={getAvailableBackups}
+              availablePlanners={getAvailablePlanners}
               assignedBackups={assignedBackups}
               showDropdownForController={showDropdownForController}
               selectedBackupForController={selectedBackupForController}
+              showPlannerDropdownForController={showPlannerDropdownForController}
+              selectedPlannerForController={selectedPlannerForController}
               onBackupSelection={handleBackupSelection}
+              onPlannerSelection={handlePlannerSelection}
               onConfirmBackup={handleConfirmBackup}
+              onConfirmPlanner={handleConfirmPlanner}
               onDismissByController={handleDismissNotificationByController}
             />
           ) : (
