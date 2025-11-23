@@ -12,6 +12,7 @@ import { ControllerManagement } from './features/supervisor/ControllerManagement
 import { AnalyticsView } from './features/supervisor/AnalyticsView'
 import { SettingsView } from './features/settings/SettingsView'
 import { MonitoringDemo } from './features/demo/MonitoringDemo'
+import { ControllerMonitoringPage } from './features/demo/ControllerMonitoringPage'
 
 const router = createBrowserRouter([
   {
@@ -21,6 +22,10 @@ const router = createBrowserRouter([
   {
     path: '/demo',
     element: <MonitoringDemo />,
+  },
+  {
+    path: '/demo/controller/:controllerId',
+    element: <ControllerMonitoringPage />,
   },
   {
     path: '/controller',
