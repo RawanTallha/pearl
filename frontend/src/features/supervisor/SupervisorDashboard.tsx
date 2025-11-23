@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchControllers, fetchSectorRosters, fetchSupervisorActions, fetchLiveFrame } from '../../services/dataService'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchControllers, fetchSectorRosters, fetchSupervisorActions, fetchLiveFrame, saveSupervisorAction } from '../../services/dataService'
 import { subscribeToSimulation } from '../../services/simulationService'
 import type { ControllerProfile, FatigueSnapshot, SupervisorAction, VoiceFatigueSample } from '../../types'
 import { useVoiceFatigueStore } from '../../store/useVoiceFatigueStore'
@@ -14,6 +14,8 @@ const statusBadge: Record<FatigueSnapshot['status'], string> = {
 }
 
 export function SupervisorDashboard() {
+  const queryClient = useQueryClient()
+  
   const { data: controllers } = useQuery({
     queryKey: ['controllers'],
     queryFn: () => fetchControllers(),
@@ -390,7 +392,7 @@ export function SupervisorDashboard() {
         return newMap
       })
 
-      // Add to local actions
+      // Add to local actions and save to server
       const actionMessage = `Backup assigned for Controller: ${controller.name} (${controller.id}) — Backup: ${backup.name} (${backup.id})`
       const newAction: SupervisorAction = {
         id: `local-${Date.now()}-${controllerId}`,
@@ -400,6 +402,13 @@ export function SupervisorDashboard() {
         createdAt: new Date().toISOString(),
       }
       setLocalActions((prev) => [...prev, newAction])
+      
+      // Save to server and invalidate query to update sidebar count
+      saveSupervisorAction(newAction).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['supervisor-actions'] })
+      }).catch((error) => {
+        console.error('Failed to save action:', error)
+      })
 
       // Reset UI state
       setShowDropdownForController(null)
@@ -448,7 +457,7 @@ export function SupervisorDashboard() {
         return newMap
       })
 
-      // Add to local actions
+      // Add to local actions and save to server
       const actionMessage = `Planner assigned for Controller: ${controller.name} (${controller.id}) — Planner: ${planner.name} (${planner.id})`
       const newAction: SupervisorAction = {
         id: `local-${Date.now()}-${controllerId}-planner`,
@@ -458,6 +467,13 @@ export function SupervisorDashboard() {
         createdAt: new Date().toISOString(),
       }
       setLocalActions((prev) => [...prev, newAction])
+      
+      // Save to server and invalidate query to update sidebar count
+      saveSupervisorAction(newAction).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['supervisor-actions'] })
+      }).catch((error) => {
+        console.error('Failed to save action:', error)
+      })
 
       // Reset UI state
       setShowPlannerDropdownForController(null)
@@ -527,6 +543,13 @@ export function SupervisorDashboard() {
         createdAt: new Date().toISOString(),
       }
       setLocalActions((prev) => [...prev, newAction])
+      
+      // Save to server and invalidate query to update sidebar count
+      saveSupervisorAction(newAction).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['supervisor-actions'] })
+      }).catch((error) => {
+        console.error('Failed to save action:', error)
+      })
 
       // Dismiss notification for this controller
       setNotifications((prev) => {

@@ -74,6 +74,15 @@ export async function fetchSupervisorActions(): Promise<SupervisorAction[]> {
   return data
 }
 
+export async function saveSupervisorAction(action: SupervisorAction): Promise<SupervisorAction> {
+  const { data } = await api.post<SupervisorAction>('/actions', {
+    controllerId: action.controllerId,
+    action: action.action,
+    message: action.message,
+  })
+  return data
+}
+
 export async function fetchLiveFrame(): Promise<FatigueSnapshot[]> {
   const { data } = await api.get<{ timestamp: string; controllers: FatigueSnapshot[] }>('/dashboard/live')
   return data.controllers ?? []
