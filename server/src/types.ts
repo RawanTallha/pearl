@@ -1,6 +1,6 @@
 export type FatigueStatus = 'Normal' | 'Monitor' | 'High Fatigue'
 
-export type RosterRole = 'primary' | 'backup'
+export type RosterRole = 'primary' | 'backup' | 'Planners'
 
 export interface ControllerProfile {
   id: string

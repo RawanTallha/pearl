@@ -360,15 +360,19 @@ export function SupervisorDashboard() {
   // List of available planners (separate from controllers)
   const availablePlannersList = ['Baraa', 'Ali', 'Omar']
   
-  // Get available planners (exclude already assigned ones)
+  // Get available planners (exclude already assigned ones and currently selected ones for other controllers)
   const getAvailablePlanners = useCallback(
     (controllerId: string): string[] => {
       const assignedPlannerNames = Array.from(assignedPlanners.values())
+      const selectedPlannerNames = Array.from(selectedPlannerForController.values())
+      // Exclude planners that are already assigned OR currently selected for other controllers
       return availablePlannersList.filter(
-        (plannerName) => !assignedPlannerNames.includes(plannerName)
+        (plannerName) => 
+          !assignedPlannerNames.includes(plannerName) && 
+          !selectedPlannerNames.includes(plannerName)
       )
     },
-    [assignedPlanners],
+    [assignedPlanners, selectedPlannerForController],
   )
 
   // Handle backup assignment
@@ -452,10 +456,38 @@ export function SupervisorDashboard() {
   const handleConfirmPlanner = useCallback(
     (controllerId: string) => {
       const plannerName = selectedPlannerForController.get(controllerId)
-      if (!plannerName || !controllers) return
+      if (!plannerName || !controllers) {
+        console.error('Planner assignment failed: plannerName or controllers missing', { plannerName, controllers: !!controllers })
+        return
+      }
 
       const controller = controllers.find((c) => c.id === controllerId)
-      if (!controller) return
+      if (!controller) {
+        console.error('Planner assignment failed: controller not found', { controllerId })
+        return
+      }
+
+      // Find the planner controller object to get the ID
+      // First try exact match with rosterRole
+      let plannerController = controllers.find((c) => c.name === plannerName && (c.rosterRole as string) === 'Planners')
+      
+      // If not found, try case-insensitive match
+      if (!plannerController) {
+        plannerController = controllers.find((c) => 
+          c.name.toLowerCase() === plannerName.toLowerCase() && (c.rosterRole as string) === 'Planners'
+        )
+      }
+      
+      if (!plannerController) {
+        console.error('Planner assignment failed: planner controller not found', { 
+          plannerName, 
+          availablePlanners: controllers.filter(c => (c.rosterRole as string) === 'Planners').map(c => `${c.name} (${c.id})`),
+          allControllers: controllers.map(c => `${c.name} (${c.rosterRole})`)
+        })
+        return
+      }
+      
+      console.log('Found planner controller:', plannerController.name, plannerController.id)
 
       // Add to assigned planners (store planner name instead of controller ID)
       setAssignedPlanners((prev) => {
@@ -465,7 +497,7 @@ export function SupervisorDashboard() {
       })
 
       // Add to local actions and save to server
-      const actionMessage = `Planner assigned for Controller: ${controller.name} (${controller.id}) — Planner: ${plannerName}`
+      const actionMessage = `Planner assigned for Controller: ${controller.name} (${controller.id}) — Planner: ${plannerController.name} (${plannerController.id})`
       const newAction: SupervisorAction = {
         id: `local-${Date.now()}-${controllerId}-planner`,
         controllerId,
@@ -473,14 +505,23 @@ export function SupervisorDashboard() {
         message: actionMessage,
         createdAt: new Date().toISOString(),
       }
-      setLocalActions((prev) => [...prev, newAction])
+      
+      console.log('Creating planner action:', newAction)
+      setLocalActions((prev) => {
+        const updated = [...prev, newAction]
+        console.log('Updated localActions:', updated.length, 'actions', updated)
+        return updated
+      })
       
       // Save to server and invalidate query to update sidebar count
-      saveSupervisorAction(newAction).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['supervisor-actions'] })
-      }).catch((error) => {
-        console.error('Failed to save action:', error)
-      })
+      saveSupervisorAction(newAction)
+        .then((savedAction) => {
+          console.log('Planner action saved successfully:', savedAction)
+          queryClient.invalidateQueries({ queryKey: ['supervisor-actions'] })
+        })
+        .catch((error) => {
+          console.error('Failed to save planner action:', error, newAction)
+        })
 
       // Reset UI state
       setShowPlannerDropdownForController(null)
@@ -497,14 +538,33 @@ export function SupervisorDashboard() {
         return filtered
       })
     },
-    [selectedPlannerForController, controllers],
+    [selectedPlannerForController, controllers, queryClient],
   )
 
 
-  // Combine local actions with API actions
+  // Combine local actions with API actions, deduplicating by content and timestamp
   const allActions = useMemo(() => {
     const apiActions = actions ?? []
-    return [...localActions, ...apiActions].sort(
+    
+    // Create a set of API action signatures (controllerId + message + timestamp within 5 seconds)
+    const apiActionSignatures = new Set<string>()
+    apiActions.forEach(action => {
+      const timestamp = new Date(action.createdAt).getTime()
+      // Create signature based on controller, message, and rounded timestamp (to nearest 5 seconds)
+      const roundedTime = Math.floor(timestamp / 5000) * 5000
+      const signature = `${action.controllerId}|${action.message}|${roundedTime}`
+      apiActionSignatures.add(signature)
+    })
+    
+    // Only include local actions that don't match any API action
+    const unsavedLocalActions = localActions.filter(localAction => {
+      const timestamp = new Date(localAction.createdAt).getTime()
+      const roundedTime = Math.floor(timestamp / 5000) * 5000
+      const signature = `${localAction.controllerId}|${localAction.message}|${roundedTime}`
+      return !apiActionSignatures.has(signature)
+    })
+    
+    return [...unsavedLocalActions, ...apiActions].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )
   }, [actions, localActions])
@@ -751,7 +811,7 @@ export function SupervisorDashboard() {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-500">Controller Status</h2>
+                  <h2 className="text-lg font-semibold text-slate-100">Controller Status</h2>
                   <p className="text-sm text-slate-500">
                     Live monitoring
                   </p>
@@ -897,7 +957,7 @@ export function SupervisorDashboard() {
          <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6 relative">
            <div className="flex items-center justify-between mb-2">
              <div className="flex items-center gap-3">
-               <h3 className="text-lg font-semibold text-slate-500">Latest supervisor actions</h3>
+               <h3 className="text-lg font-semibold text-slate-100">Latest supervisor actions</h3>
                {allActions.length > 0 && (
                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-pearl-primary/20 text-xs font-bold text-pearl-primary">
                    {allActions.length}
@@ -1084,7 +1144,7 @@ export function SupervisorDashboard() {
         <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-slate-500">Sector roster overview</h3>
+              <h3 className="text-lg font-semibold text-slate-100">Sector roster overview</h3>
               <p className="mt-2 text-sm text-slate-500">
                 Backup pools per sector for immediate coverage.
               </p>

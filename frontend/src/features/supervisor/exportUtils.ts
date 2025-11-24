@@ -231,18 +231,20 @@ interface SupervisorActionExportData {
   timestamp: string
   fatiguedController: string
   assignedBackup: string
+  assignedPlanner: string
   fatigueScore: string
   notes: string
 }
 
 // Parse action message to extract backup controller info
-function parseActionMessage(message: string): { fatiguedController: string; backupController: string } | null {
+function parseActionMessage(message: string): { fatiguedController: string; backupController: string; plannerName: string | null } | null {
   // Try new format first: "Backup assigned for Controller: Name (ID) — Backup: Name (ID)"
   let backupMatch = message.match(/Backup assigned for Controller: (.+?) \(([^)]+)\) — Backup: (.+?) \(([^)]+)\)/)
   if (backupMatch) {
     return {
       fatiguedController: `${backupMatch[1]} (${backupMatch[2]})`,
       backupController: `${backupMatch[3]} (${backupMatch[4]})`,
+      plannerName: null,
     }
   }
   
@@ -252,6 +254,7 @@ function parseActionMessage(message: string): { fatiguedController: string; back
     return {
       fatiguedController: backupMatch[1],
       backupController: backupMatch[2],
+      plannerName: null,
     }
   }
   
@@ -261,6 +264,29 @@ function parseActionMessage(message: string): { fatiguedController: string; back
     return {
       fatiguedController: `${backupMatch[1]} (${backupMatch[2]})`,
       backupController: `${backupMatch[3]} (${backupMatch[4]})`,
+      plannerName: null,
+    }
+  }
+  
+  // Try planner format with ID: "Planner assigned for Controller: Name (ID) — Planner: PlannerName (PlannerID)"
+  // Match both em dash (—) and regular dash (-) for compatibility
+  // Use non-greedy matching and ensure we capture the full planner name and ID
+  let plannerMatch = message.match(/Planner assigned for Controller: (.+?) \(([^)]+)\)\s*[—\-]\s*Planner:\s*(.+?)\s*\(([^)]+)\)/)
+  if (plannerMatch && plannerMatch[3] && plannerMatch[4]) {
+    return {
+      fatiguedController: `${plannerMatch[1]} (${plannerMatch[2]})`,
+      backupController: '-',
+      plannerName: `${plannerMatch[3].trim()} (${plannerMatch[4]})`, // Include ID in plannerName for consistent format
+    }
+  }
+  
+  // Try planner format without ID (legacy): "Planner assigned for Controller: Name (ID) — Planner: PlannerName"
+  plannerMatch = message.match(/Planner assigned for Controller: (.+?) \(([^)]+)\) [—\-] Planner: (.+?)(?:\s|$)/)
+  if (plannerMatch) {
+    return {
+      fatiguedController: `${plannerMatch[1]} (${plannerMatch[2]})`,
+      backupController: '-',
+      plannerName: plannerMatch[3].trim(), // Trim to remove any trailing whitespace
     }
   }
   
@@ -277,19 +303,36 @@ export function exportSupervisorActionsToCSV(
   const controllerMap = new Map(controllers.map((c) => [c.id, c]))
   const frameMap = new Map(frames.map((f) => [f.controllerId, f]))
 
+  const controllerNameMap = new Map(controllers.map((c) => [c.name, c]))
+
   const exportData: SupervisorActionExportData[] = actions.map((action) => {
     const parsed = parseActionMessage(action.message)
     const controller = controllerMap.get(action.controllerId)
     
     let fatiguedController: string
     let assignedBackup: string
+    let assignedPlanner: string = '-'
     
     if (parsed) {
-      // Message contains backup info
+      // Message contains backup or planner info
       fatiguedController = parsed.fatiguedController
-      assignedBackup = parsed.backupController
+      assignedBackup = parsed.backupController !== '-' ? parsed.backupController : '-'
+      
+      // Handle planner
+      if (parsed.plannerName) {
+        const plannerName = parsed.plannerName.trim()
+        if (plannerName.includes('(') && plannerName.includes(')')) {
+          assignedPlanner = plannerName
+        } else {
+          const plannerController = controllerNameMap.get(plannerName) || 
+            controllers.find(c => c.name.toLowerCase() === plannerName.toLowerCase())
+          assignedPlanner = plannerController 
+            ? `${plannerController.name} (${plannerController.id})`
+            : plannerName
+        }
+      }
     } else {
-      // No backup info in message, extract from controller data
+      // No backup/planner info in message, extract from controller data
       fatiguedController = controller
         ? `${controller.name} (${controller.id})`
         : action.controllerId
@@ -310,6 +353,7 @@ export function exportSupervisorActionsToCSV(
       timestamp: new Date(action.createdAt).toISOString(),
       fatiguedController,
       assignedBackup,
+      assignedPlanner,
       fatigueScore,
       notes: action.message,
     }
@@ -348,29 +392,225 @@ export function exportSupervisorActionsToPDF(
   if (!actions.length || !controllers.length) return
 
   const controllerMap = new Map(controllers.map((c) => [c.id, c]))
+  // Create a name-to-controller map for lookup when only name is available
+  const controllerNameMap = new Map(controllers.map((c) => [c.name, c]))
 
   const exportData: SupervisorActionExportData[] = actions.map((action) => {
     const parsed = parseActionMessage(action.message)
     const controller = controllerMap.get(action.controllerId)
     
     let fatiguedController: string
-    let assignedBackup: string
+    let assignedBackup: string = '-'
+    let assignedPlanner: string = '-'
     
     if (parsed) {
-      // Message contains backup info
+      // Message contains backup or planner info
       fatiguedController = parsed.fatiguedController
-      assignedBackup = parsed.backupController
+      
+      // Ensure backup shows name and ID format
+      if (parsed.backupController && parsed.backupController !== '-') {
+        // If backup already has ID format (contains parentheses), use it as is
+        if (parsed.backupController.includes('(') && parsed.backupController.includes(')')) {
+          assignedBackup = parsed.backupController
+        } else {
+          // Backup name only - need to look up the ID
+          const backupController = controllerNameMap.get(parsed.backupController.trim())
+          if (backupController) {
+            assignedBackup = `${backupController.name} (${backupController.id})`
+          } else {
+            // If lookup fails, try to find by partial name match
+            const foundController = controllers.find(c => 
+              c.name.toLowerCase() === parsed.backupController.toLowerCase().trim()
+            )
+            assignedBackup = foundController 
+              ? `${foundController.name} (${foundController.id})`
+              : parsed.backupController // Fallback to original if not found
+          }
+        }
+      } else {
+        assignedBackup = '-'
+      }
+      
+      // Ensure planner shows name and ID format
+      if (parsed.plannerName) {
+        const plannerName = parsed.plannerName.trim()
+        
+        // Check if plannerName already includes ID format (from new message format)
+        // Format: "Name (ID)" or just "Name"
+        if (plannerName.includes('(') && plannerName.includes(')')) {
+          // Already has ID format, use it directly
+          assignedPlanner = plannerName
+        } else {
+          // Planner name only - need to look up the ID
+          // IMPORTANT: Always prioritize rosterRole === 'Planners' check first
+          let plannerController = controllers.find(c => 
+            c.name === plannerName && (c.rosterRole as string) === 'Planners'
+          )
+          
+          // If not found with exact match, try case-insensitive with rosterRole check
+          if (!plannerController) {
+            plannerController = controllers.find(c => 
+              c.name.toLowerCase() === plannerName.toLowerCase() && (c.rosterRole as string) === 'Planners'
+            )
+          }
+          
+          // If still not found, try the name map (but this should not be needed if planners are in the list)
+          if (!plannerController) {
+            const mappedController = controllerNameMap.get(plannerName)
+            if (mappedController && (mappedController.rosterRole as string) === 'Planners') {
+              plannerController = mappedController
+            }
+          }
+          
+          // Last resort: try without rosterRole check (should rarely happen)
+          if (!plannerController) {
+            plannerController = controllers.find(c => 
+              c.name.toLowerCase() === plannerName.toLowerCase()
+            )
+          }
+          
+          // Format as "Name (ID)" or fallback to name only if not found
+          if (plannerController) {
+            assignedPlanner = `${plannerController.name} (${plannerController.id})`
+          } else {
+            // Last resort: if we can't find the planner, just use the name
+            // DO NOT use a broader search as it might match the wrong controller
+            assignedPlanner = plannerName
+          }
+        }
+      } else {
+        assignedPlanner = '-'
+      }
+      
+      // Final check: ensure assignedPlanner is ALWAYS in "Name (ID)" format if it's not already
+      if (assignedPlanner !== '-' && !assignedPlanner.includes('(')) {
+        // Try one more lookup - ONLY with rosterRole === 'Planners' to avoid wrong matches
+        const finalLookup = controllers.find(c => 
+          c.name === assignedPlanner && (c.rosterRole as string) === 'Planners'
+        ) || controllers.find(c => 
+          c.name.toLowerCase() === assignedPlanner.toLowerCase() && (c.rosterRole as string) === 'Planners'
+        )
+        // If found, format it properly
+        if (finalLookup) {
+          assignedPlanner = `${finalLookup.name} (${finalLookup.id})`
+        } else {
+          // If still not found, log a warning but keep the name (don't match wrong controller)
+          console.warn(`Could not find planner ID for: ${assignedPlanner}. Available planners:`, 
+            controllers.filter(c => (c.rosterRole as string) === 'Planners').map(c => c.name))
+        }
+      }
     } else {
-      // No backup info in message, extract from controller data
+      // No backup/planner info in message, extract from controller data
       fatiguedController = controller
         ? `${controller.name} (${controller.id})`
         : action.controllerId
       
-      // Check if it's a delay action without backup info
-      if (action.message.includes('Monitoring delayed')) {
-        assignedBackup = '-'
-      } else {
-        assignedBackup = '-'
+      // Try to extract backup info from message even if parsing failed
+      // Look for backup mentions in various formats
+      let backupFound = false
+      const backupPatterns = [
+        /Backup: (.+?) \(([^)]+)\)/,
+        /Backup: (.+?)(?:\s|$)/,
+        /backup: (.+?) \(([^)]+)\)/i,
+        /backup: (.+?)(?:\s|$)/i,
+      ]
+      
+      for (const pattern of backupPatterns) {
+        const match = action.message.match(pattern)
+        if (match) {
+          if (match[2]) {
+            // Has ID
+            assignedBackup = `${match[1].trim()} (${match[2]})`
+          } else {
+            // Name only, look up ID
+            const backupController = controllerNameMap.get(match[1].trim())
+            assignedBackup = backupController 
+              ? `${backupController.name} (${backupController.id})`
+              : match[1].trim()
+          }
+          backupFound = true
+          break
+        }
+      }
+      
+      if (!backupFound) {
+        // Check if it's a delay action without backup info
+        if (action.message.includes('Monitoring delayed')) {
+          assignedBackup = '-'
+        } else {
+          assignedBackup = '-'
+        }
+      }
+      
+      // Try to extract planner info from message even if parsing failed
+      let plannerFound = false
+      const plannerPatterns = [
+        /Planner: (.+?) \(([^)]+)\)/,
+        /Planner: (.+?)(?:\s|$)/,
+        /planner: (.+?) \(([^)]+)\)/i,
+        /planner: (.+?)(?:\s|$)/i,
+      ]
+      
+      for (const pattern of plannerPatterns) {
+        const match = action.message.match(pattern)
+        if (match) {
+          const plannerName = match[1].trim()
+          if (match[2]) {
+            // Has ID
+            assignedPlanner = `${plannerName} (${match[2]})`
+          } else {
+            // Name only, look up ID
+            // IMPORTANT: Always prioritize rosterRole === 'Planners' check first
+            let plannerController = controllers.find(c => 
+              c.name === plannerName && (c.rosterRole as string) === 'Planners'
+            )
+            
+            // If not found with exact match, try case-insensitive with rosterRole check
+            if (!plannerController) {
+              plannerController = controllers.find(c => 
+                c.name.toLowerCase() === plannerName.toLowerCase() && (c.rosterRole as string) === 'Planners'
+              )
+            }
+            
+            // If still not found, try the name map (but this should not be needed if planners are in the list)
+            if (!plannerController) {
+              const mappedController = controllerNameMap.get(plannerName)
+              if (mappedController && (mappedController.rosterRole as string) === 'Planners') {
+                plannerController = mappedController
+              }
+            }
+            
+            // Last resort: try without rosterRole check (should rarely happen)
+            if (!plannerController) {
+              plannerController = controllers.find(c => 
+                c.name.toLowerCase() === plannerName.toLowerCase()
+              )
+            }
+            
+            assignedPlanner = plannerController 
+              ? `${plannerController.name} (${plannerController.id})`
+              : plannerName
+          }
+          plannerFound = true
+          break
+        }
+      }
+      
+      if (!plannerFound) {
+        assignedPlanner = '-'
+      }
+    }
+    
+    // Clean notes - remove backup/planner details since they're in separate columns
+    let cleanNotes = action.message
+    if (parsed && (parsed.backupController !== '-' || parsed.plannerName)) {
+      // Remove backup/planner assignment details from notes since they're in separate columns
+      if (parsed.backupController !== '-') {
+        cleanNotes = cleanNotes.replace(/Backup assigned for Controller: .+? [—\-] Backup: .+?/g, 'Backup assigned')
+        cleanNotes = cleanNotes.replace(/Monitoring delayed 10 minutes for Controller: .+? [—\-] Backup: .+?/g, 'Monitoring delayed 10 minutes')
+      }
+      if (parsed.plannerName) {
+        cleanNotes = cleanNotes.replace(/Planner assigned for Controller: .+? [—\-] Planner: .+?/g, 'Planner assigned')
       }
     }
     
@@ -378,8 +618,9 @@ export function exportSupervisorActionsToPDF(
       timestamp: new Date(action.createdAt).toISOString(),
       fatiguedController,
       assignedBackup,
+      assignedPlanner,
       fatigueScore: 'N/A', // PDF doesn't need fatigue score from frames
-      notes: action.message,
+      notes: cleanNotes,
     }
   })
 
@@ -454,6 +695,7 @@ export function exportSupervisorActionsToPDF(
               <th>Timestamp</th>
               <th>Fatigued Controller</th>
               <th>Assigned Backup</th>
+              <th>Planners Assigned</th>
               <th>Action Description</th>
             </tr>
           </thead>
@@ -465,6 +707,7 @@ export function exportSupervisorActionsToPDF(
                 <td>${new Date(row.timestamp).toLocaleString()}</td>
                 <td>${row.fatiguedController}</td>
                 <td>${row.assignedBackup}</td>
+                <td>${row.assignedPlanner}</td>
                 <td>${row.notes}</td>
               </tr>
             `,

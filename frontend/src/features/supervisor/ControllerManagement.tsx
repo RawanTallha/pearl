@@ -129,7 +129,7 @@ export function ControllerManagement() {
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-700">
           <table className="min-w-full divide-y divide-slate-800/80 text-sm">
-            <thead className="bg-slate-900/65 text-slate-500">
+            <thead className="bg-slate-900/65 text-slate-100">
               <tr>
                 <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Controller</th>
                 <th className="px-5 py-3 text-left font-medium uppercase tracking-wider">Sector</th>

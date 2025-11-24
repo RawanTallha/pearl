@@ -7,13 +7,6 @@ import { FatigueEmployeeChart } from './FatigueEmployeeChart'
 import { FatigueWeeklyReportPopup } from './FatigueWeeklyReportPopup'
 import { exportToCSV, exportToPDF } from './exportUtils'
 
-const heatmapSlots = [
-  { label: 'Morning', multiplier: 0.85 },
-  { label: 'Afternoon', multiplier: 0.95 },
-  { label: 'Evening', multiplier: 1.05 },
-  { label: 'Night', multiplier: 1.34 },
-]
-
 export function AnalyticsView() {
   const { data: summaries } = useQuery({
     queryKey: ['shift-summaries', 'all'],
@@ -211,27 +204,6 @@ export function AnalyticsView() {
           </div>
         </section>
       )}
-
-      <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
-        <h3 className="text-lg font-semibold text-slate-500">Shift-based fatigue multiplier</h3>
-        <p className="mt-2 text-sm text-slate-500">
-          Shift strain analysis. Night operations show higher fatigue load.
-        </p>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {heatmapSlots.map((slot) => (
-            <div key={slot.label} className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5 transition-all hover:border-slate-600 hover:shadow-lg hover:shadow-slate-900/50">
-              <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{slot.label}</p>
-              <p className="mt-3 text-3xl font-semibold text-slate-100 transition-transform hover:scale-105">{slot.multiplier.toFixed(2)}x</p>
-              <p className="mt-2 text-xs text-slate-500">Relative to baseline mornings.</p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/55 p-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <p className="text-sm text-slate-500">
-            <strong className="text-slate-100">Recommendation:</strong> rotate every 90 minutes on night shifts; hydration reminders at 60 minutes.
-          </p>
-        </div>
-      </section>
 
       {/* Drill-down Popup */}
       {summaries && controllers && (
