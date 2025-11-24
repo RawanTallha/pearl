@@ -71,15 +71,20 @@ app.get('/health', (_req, res) => {
 })
 
 app.post('/auth/controller', (req, res) => {
-  const { controllerId } = req.body as { controllerId?: string }
-  if (!controllerId) {
-    return res.status(400).json({ error: 'controllerId is required' })
+  const { controllerId, password } = req.body as { controllerId?: string; password?: string }
+  if (!controllerId || !password) {
+    return res.status(400).json({ error: 'controllerId and password are required' })
   }
   const profile = findControllerById(controllerId)
   if (!profile) {
     return res.status(404).json({ error: 'Controller not found' })
   }
-  return res.json(profile)
+  if (profile.password !== password) {
+    return res.status(401).json({ error: 'Invalid credentials' })
+  }
+  // Don't send password in response
+  const { password: _, ...profileWithoutPassword } = profile
+  return res.json(profileWithoutPassword)
 })
 
 app.post('/auth/supervisor', (req, res) => {

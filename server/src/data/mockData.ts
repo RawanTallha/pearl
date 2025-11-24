@@ -11,6 +11,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Lama_001',
     name: 'Lama',
+    password: 'pearl-controller-001',
     experienceYears: 7,
     yearOfBirth: 1993,
     gender: 'Female',
@@ -31,6 +32,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Rawan_002',
     name: 'Rawan',
+    password: 'pearl-controller-002',
     experienceYears: 5,
     yearOfBirth: 1996,
     gender: 'Female',
@@ -51,6 +53,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Rahaf_003',
     name: 'Rahaf',
+    password: 'pearl-controller-003',
     experienceYears: 9,
     yearOfBirth: 1992,
     gender: 'Female',
@@ -71,6 +74,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Noura_004',
     name: 'Noura',
+    password: 'pearl-controller-004',
     experienceYears: 6,
     yearOfBirth: 1994,
     gender: 'Female',
@@ -91,6 +95,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Leena_005',
     name: 'Leena',
+    password: 'pearl-controller-005',
     experienceYears: 8,
     yearOfBirth: 1991,
     gender: 'Female',
@@ -111,6 +116,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Maha_006',
     name: 'Maha',
+    password: 'pearl-controller-006',
     experienceYears: 4,
     yearOfBirth: 1998,
     gender: 'Female',
@@ -131,6 +137,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Fahad_007',
     name: 'Fahad',
+    password: 'pearl-controller-007',
     experienceYears: 10,
     yearOfBirth: 1989,
     gender: 'Male',
@@ -151,6 +158,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Saud_008',
     name: 'Saud',
+    password: 'pearl-controller-008',
     experienceYears: 6,
     yearOfBirth: 1994,
     gender: 'Male',
@@ -171,6 +179,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Khalid_009',
     name: 'Khalid',
+    password: 'pearl-controller-009',
     experienceYears: 8,
     yearOfBirth: 1991,
     gender: 'Male',
@@ -191,6 +200,7 @@ export const controllers: ControllerProfile[] = [
   {
     id: 'C_Mohammed_010',
     name: 'Mohammed',
+    password: 'pearl-controller-010',
     experienceYears: 5,
     yearOfBirth: 1997,
     gender: 'Male',

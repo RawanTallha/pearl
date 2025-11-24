@@ -14,7 +14,7 @@ interface FatigueNotificationProps {
   onNotifyPlanner: (controllerId: string) => void
   onDelayMonitoring: (controllerId: string) => void
   availableBackups: (sectorId: string) => ControllerProfile[]
-  availablePlanners: (controllerId: string) => ControllerProfile[]
+  availablePlanners: (controllerId: string) => string[]
   assignedBackups: Map<string, string>
   assignedPlanners: Map<string, string>
   showDropdownForController: string | null
@@ -22,7 +22,7 @@ interface FatigueNotificationProps {
   selectedBackupForController: Map<string, string>
   selectedPlannerForController: Map<string, string>
   onBackupSelection: (controllerId: string, backupId: string) => void
-  onPlannerSelection: (controllerId: string, plannerId: string) => void
+  onPlannerSelection: (controllerId: string, plannerName: string) => void
   onConfirmBackup: (controllerId: string) => void
   onConfirmPlanner: (controllerId: string) => void
   onDismissByController?: (controllerId: string) => void
@@ -86,7 +86,7 @@ interface NotificationItemProps {
   onNotifyPlanner: (controllerId: string) => void
   onDelayMonitoring: (controllerId: string) => void
   availableBackups: (sectorId: string) => ControllerProfile[]
-  availablePlanners: (controllerId: string) => ControllerProfile[]
+  availablePlanners: (controllerId: string) => string[]
   assignedBackups: Map<string, string>
   assignedPlanners: Map<string, string>
   showDropdownForController: string | null
@@ -94,7 +94,7 @@ interface NotificationItemProps {
   selectedBackupForController: Map<string, string>
   selectedPlannerForController: Map<string, string>
   onBackupSelection: (controllerId: string, backupId: string) => void
-  onPlannerSelection: (controllerId: string, plannerId: string) => void
+  onPlannerSelection: (controllerId: string, plannerName: string) => void
   onConfirmBackup: (controllerId: string) => void
   onConfirmPlanner: (controllerId: string) => void
   onDismissByController?: (controllerId: string) => void
@@ -292,9 +292,9 @@ function NotificationItem({
                   className="w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 focus:border-pearl-primary focus:outline-none focus:ring-2 focus:ring-pearl-primary/30"
                 >
                   <option value="">Choose from planner list</option>
-                  {availablePlannerList.map((planner) => (
-                    <option key={planner.id} value={planner.id}>
-                      {planner.name}
+                  {availablePlannerList.map((plannerName) => (
+                    <option key={plannerName} value={plannerName}>
+                      {plannerName}
                     </option>
                   ))}
                 </select>

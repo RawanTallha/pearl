@@ -20,13 +20,13 @@ function isNotFound(error: unknown): boolean {
   return axios.isAxiosError(error) && error.response?.status === 404
 }
 
-export async function authenticateController(controllerId: string): Promise<ControllerProfile | null> {
-  if (!controllerId) return null
+export async function authenticateController(controllerId: string, password: string): Promise<ControllerProfile | null> {
+  if (!controllerId || !password) return null
   try {
-    const { data } = await api.post<ControllerProfile>('/auth/controller', { controllerId })
+    const { data } = await api.post<ControllerProfile>('/auth/controller', { controllerId, password })
     return data
   } catch (error) {
-    if (isNotFound(error)) return null
+    if (isNotFound(error) || (axios.isAxiosError(error) && error.response?.status === 401)) return null
     throw error
   }
 }

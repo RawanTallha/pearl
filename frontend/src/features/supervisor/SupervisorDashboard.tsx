@@ -357,16 +357,18 @@ export function SupervisorDashboard() {
     [sectorRosters, assignedBackups],
   )
 
-  // Get available planners (all controllers except the one with fatigue)
+  // List of available planners (separate from controllers)
+  const availablePlannersList = ['Baraa', 'Ali', 'Omar']
+  
+  // Get available planners (exclude already assigned ones)
   const getAvailablePlanners = useCallback(
-    (controllerId: string): ControllerProfile[] => {
-      if (!controllers) return []
-      const assignedPlannerIds = Array.from(assignedPlanners.values())
-      return controllers.filter(
-        (controller) => controller.id !== controllerId && !assignedPlannerIds.includes(controller.id)
+    (controllerId: string): string[] => {
+      const assignedPlannerNames = Array.from(assignedPlanners.values())
+      return availablePlannersList.filter(
+        (plannerName) => !assignedPlannerNames.includes(plannerName)
       )
     },
-    [controllers, assignedPlanners],
+    [assignedPlanners],
   )
 
   // Handle backup assignment
@@ -449,22 +451,21 @@ export function SupervisorDashboard() {
 
   const handleConfirmPlanner = useCallback(
     (controllerId: string) => {
-      const plannerId = selectedPlannerForController.get(controllerId)
-      if (!plannerId || !controllers) return
+      const plannerName = selectedPlannerForController.get(controllerId)
+      if (!plannerName || !controllers) return
 
       const controller = controllers.find((c) => c.id === controllerId)
-      const planner = controllers.find((c) => c.id === plannerId)
-      if (!controller || !planner) return
+      if (!controller) return
 
-      // Add to assigned planners
+      // Add to assigned planners (store planner name instead of controller ID)
       setAssignedPlanners((prev) => {
         const newMap = new Map(prev)
-        newMap.set(controllerId, plannerId)
+        newMap.set(controllerId, plannerName)
         return newMap
       })
 
       // Add to local actions and save to server
-      const actionMessage = `Planner assigned for Controller: ${controller.name} (${controller.id}) — Planner: ${planner.name} (${planner.id})`
+      const actionMessage = `Planner assigned for Controller: ${controller.name} (${controller.id}) — Planner: ${plannerName}`
       const newAction: SupervisorAction = {
         id: `local-${Date.now()}-${controllerId}-planner`,
         controllerId,
@@ -788,7 +789,6 @@ export function SupervisorDashboard() {
                   <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Sector</th>
                   <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Fatigue Score</th>
                   <th className="px-6 py-3 text-left font-medium uppercase tracking-wider whitespace-nowrap">Status</th>
-                  <th className="px-6 py-3 text-left font-medium uppercase tracking-wider">Recommendation</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-slate-500">
@@ -843,14 +843,6 @@ export function SupervisorDashboard() {
                         {snapshot?.status === 'Normal' && <span>🟢</span>}
                         {snapshot?.status ? statusLabel[snapshot.status] : 'Waiting'}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500">
-                      <div>{snapshot?.recommendation ?? 'Awaiting data…'}</div>
-                      {snapshot?.status === 'High Fatigue' && backupName ? (
-                        <p className="mt-2 rounded-lg border border-pearl-warning/30 bg-pearl-warning/10 px-3 py-2 font-semibold text-pearl-warning">
-                          Notify backup: {backupName}
-                        </p>
-                      ) : null}
                     </td>
                   </tr>
                 )})}

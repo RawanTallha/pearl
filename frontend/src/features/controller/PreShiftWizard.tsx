@@ -20,12 +20,6 @@ export function PreShiftWizard() {
   const [stepIndex, setStepIndex] = useState(0)
   const [complete, setComplete] = useState(false)
   
-  // Face Scan state
-  const [faceScanStatus, setFaceScanStatus] = useState<'idle' | 'capturing' | 'completed'>('idle')
-  const [faceScanResult, setFaceScanResult] = useState<string>('')
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const faceScanStreamRef = useRef<MediaStream | null>(null)
-  
   // Voice Sample state
   const [voiceSampleStatus, setVoiceSampleStatus] = useState<'idle' | 'recording' | 'completed'>('idle')
   const [voiceSampleResult, setVoiceSampleResult] = useState<string>('')
@@ -57,31 +51,24 @@ export function PreShiftWizard() {
 
   const sequence: StepData[] = [
     {
-      id: 'face',
-      title: 'Face Scan',
-      description: 'Quick baseline scan.',
-      status: stepIndex === 0 ? 'active' : stepIndex > 0 ? 'completed' : 'pending',
-      result: faceScanResult,
-    },
-    {
       id: 'voice',
       title: 'Voice Sample',
       description: 'Read a sentence.',
-      status: stepIndex === 1 ? 'active' : stepIndex > 1 ? 'completed' : 'pending',
+      status: stepIndex === 0 ? 'active' : stepIndex > 0 ? 'completed' : 'pending',
       result: voiceSampleResult,
     },
     {
       id: 'reaction',
       title: 'Reaction Test',
       description: 'Click when red appears.',
-      status: stepIndex === 2 ? 'active' : stepIndex > 2 ? 'completed' : 'pending',
+      status: stepIndex === 1 ? 'active' : stepIndex > 1 ? 'completed' : 'pending',
       result: reactionResult,
     },
     {
       id: 'health',
       title: 'Quick Check-in',
       description: 'Enter sleep hours.',
-      status: stepIndex === 3 ? 'active' : stepIndex > 3 ? 'completed' : 'pending',
+      status: stepIndex === 2 ? 'active' : stepIndex > 2 ? 'completed' : 'pending',
       result: healthCheckResult,
     },
   ]
@@ -93,81 +80,6 @@ export function PreShiftWizard() {
     if (!complete) return controller.baselineReadiness
     return Math.min(1, controller.baselineReadiness + 0.02)
   }, [controller, complete])
-
-  // Face Scan: Request camera access and capture
-  const startFaceScan = useCallback(async () => {
-    try {
-      setFaceScanStatus('capturing')
-      
-      // Check if mediaDevices is available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera access is not supported in this browser.')
-      }
-      
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          width: { ideal: 640 }, 
-          height: { ideal: 480 },
-          facingMode: 'user' // Prefer front-facing camera
-        },
-      })
-      
-      faceScanStreamRef.current = stream
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().catch((err) => {
-            console.error('Video play error:', err)
-            setFaceScanStatus('idle')
-            setFaceScanResult('Unable to start video playback. Please try again.')
-            if (faceScanStreamRef.current) {
-              faceScanStreamRef.current.getTracks().forEach((track) => track.stop())
-              faceScanStreamRef.current = null
-            }
-            if (videoRef.current) {
-              videoRef.current.srcObject = null
-            }
-          })
-        }
-      }
-
-      // Simulate 20-second capture
-      setTimeout(() => {
-        setFaceScanStatus('completed')
-        setFaceScanResult('Blink frequency refreshed at 18/min. No yawns detected.')
-        // Don't cleanup immediately - let user see the result
-      }, 20000)
-    } catch (err) {
-      console.error('Camera access error:', err)
-      setFaceScanStatus('idle')
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      if (errorMessage.includes('denied') || errorMessage.includes('permission')) {
-        setFaceScanResult('Camera access denied. Please grant permission to continue.')
-      } else if (errorMessage.includes('not found') || errorMessage.includes('device')) {
-        setFaceScanResult('No camera found. Please connect a camera and try again.')
-      } else {
-        setFaceScanResult(`Camera error: ${errorMessage}. Please try again.`)
-      }
-      if (faceScanStreamRef.current) {
-        faceScanStreamRef.current.getTracks().forEach((track) => track.stop())
-        faceScanStreamRef.current = null
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null
-      }
-    }
-  }, [])
-
-  const cleanupFaceScan = useCallback(() => {
-    if (faceScanStreamRef.current) {
-      faceScanStreamRef.current.getTracks().forEach((track) => track.stop())
-      faceScanStreamRef.current = null
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null
-    }
-  }, [])
 
   // Voice Sample: Record audio
   const startVoiceSample = useCallback(async () => {
@@ -311,22 +223,17 @@ export function PreShiftWizard() {
   }, [reactionStatus, currentColor, reactionTimes, finishReactionChallenge])
 
   const handleContinue = () => {
-    if (stepIndex === 1 && voiceSampleStatus !== 'completed') {
+    if (stepIndex === 0 && voiceSampleStatus !== 'completed') {
       // Voice sample not completed
       return
     }
-    if (stepIndex === 2 && reactionStatus !== 'completed') {
+    if (stepIndex === 1 && reactionStatus !== 'completed') {
       // Reaction challenge not completed
       return
     }
-    if (stepIndex === 3 && !sleepHours) {
+    if (stepIndex === 2 && !sleepHours) {
       // Health check-in not completed
       return
-    }
-    
-    // Cleanup camera when moving away from face scan step
-    if (stepIndex === 0) {
-      cleanupFaceScan()
     }
     
     if (stepIndex < sequence.length - 1) {
@@ -375,12 +282,11 @@ export function PreShiftWizard() {
 
   useEffect(() => {
     return () => {
-      cleanupFaceScan()
       if (reactionTimeoutRef.current) {
         clearTimeout(reactionTimeoutRef.current)
       }
     }
-  }, [cleanupFaceScan])
+  }, [])
 
   if (!controller) {
     return null
@@ -440,75 +346,8 @@ export function PreShiftWizard() {
             </div>
             <p className="mt-3 text-sm text-slate-500">{step.description}</p>
 
-            {/* Face Scan Step */}
-            {stepIndex === 0 && (
-              <div className="mt-6 space-y-4">
-                 {faceScanStatus === 'idle' && (
-                   <button
-                     onClick={startFaceScan}
-                     className="rounded-xl border border-slate-400 bg-transparent px-5 py-3 text-sm font-semibold text-pearl-primary transition hover:bg-pearl-primary/10"
-                   >
-                     Start Face Scan
-                   </button>
-                 )}
-                {faceScanStatus === 'capturing' && (
-                  <div className="space-y-4">
-                    <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/55 aspect-video">
-                      <video
-                        ref={videoRef}
-                        muted
-                        playsInline
-                        autoPlay
-                        className="h-full w-full object-cover"
-                        aria-label="Live camera preview"
-                      />
-                      {!faceScanStreamRef.current && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 text-slate-500">
-                          <p>Initializing camera...</p>
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-500">Capturing... Please hold still for 20 seconds.</p>
-                    <button
-                      onClick={() => {
-                        cleanupFaceScan()
-                        setFaceScanStatus('idle')
-                        setFaceScanResult('')
-                      }}
-                      className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-500 hover:text-slate-100"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
-                {faceScanStatus === 'completed' && (
-                  <div className="mt-6 space-y-4">
-                    <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5 text-sm text-slate-500">
-                      <p className="font-medium text-pearl-primary">Latest capture</p>
-                      <p className="mt-2 text-slate-500">{faceScanResult}</p>
-                      <p className="mt-3 text-xs text-slate-500">
-                        Processed locally.
-                      </p>
-                    </div>
-                    {faceScanStreamRef.current && (
-                      <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/55 aspect-video">
-                        <video
-                          ref={videoRef}
-                          muted
-                          playsInline
-                          autoPlay
-                          className="h-full w-full object-cover"
-                          aria-label="Camera preview"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Voice Sample Step */}
-            {stepIndex === 1 && (
+            {stepIndex === 0 && (
               <div className="mt-6 space-y-4">
                 <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
                   <p className="text-sm font-semibold text-slate-500">Please read the following sentence aloud:</p>
@@ -551,7 +390,7 @@ export function PreShiftWizard() {
             )}
 
             {/* Reaction Time Challenge Step */}
-            {stepIndex === 2 && (
+            {stepIndex === 1 && (
               <div className="mt-6 space-y-4">
 
                  {reactionStatus === 'idle' && (
@@ -595,7 +434,7 @@ export function PreShiftWizard() {
             )}
 
             {/* Health Check-In Step */}
-            {stepIndex === 3 && (
+            {stepIndex === 2 && (
               <div className="mt-6 space-y-4">
                 <div className="rounded-2xl border border-slate-700 bg-slate-900/55 p-5">
                   <p className="text-sm font-semibold text-slate-100">How many hours did you sleep?</p>
@@ -634,9 +473,9 @@ export function PreShiftWizard() {
                <button
                  onClick={handleContinue}
                  disabled={
-                   (stepIndex === 1 && voiceSampleStatus !== 'completed') ||
-                   (stepIndex === 2 && reactionStatus !== 'completed') ||
-                   (stepIndex === 3 && !healthCheckResult)
+                   (stepIndex === 0 && voiceSampleStatus !== 'completed') ||
+                   (stepIndex === 1 && reactionStatus !== 'completed') ||
+                   (stepIndex === 2 && !healthCheckResult)
                  }
                  className="rounded-xl border border-slate-400 bg-transparent px-5 py-2 text-sm font-semibold text-pearl-primary transition hover:bg-pearl-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                >

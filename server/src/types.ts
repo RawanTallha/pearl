@@ -5,6 +5,7 @@ export type RosterRole = 'primary' | 'backup'
 export interface ControllerProfile {
   id: string
   name: string
+  password?: string
   experienceYears: number
   yearOfBirth: number
   gender: 'Female' | 'Male' | 'Other'

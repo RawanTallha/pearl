@@ -11,6 +11,7 @@ import type {
   ShiftSummary,
   SupervisorAction,
 } from '../types.js'
+import { controllers } from '../data/mockData.js'
 
 const DATA_DIR = path.resolve(process.cwd(), 'data')
 const SOURCE_DIR = path.join(DATA_DIR, 'source')
@@ -96,6 +97,7 @@ type LiveSampleRow = {
 type ControllerRecord = {
   controller_id: string
   name: string
+  password: string | null
   sector_id: string
   sector_name: string
   roster_role: string
@@ -135,7 +137,32 @@ type LiveSampleRecord = {
 
 export function initializeDatabase() {
   createTables()
+  migratePasswordColumn()
   seedDatabaseIfNeeded()
+}
+
+function migratePasswordColumn() {
+  try {
+    // Check if password column exists
+    const tableInfo = db.prepare("PRAGMA table_info(controllers)").all() as Array<{ name: string }>
+    const hasPasswordColumn = tableInfo.some((col) => col.name === 'password')
+    
+    if (!hasPasswordColumn) {
+      // Add password column to existing table
+      db.exec('ALTER TABLE controllers ADD COLUMN password TEXT')
+    }
+    
+    // Update existing controllers with passwords from mockData
+    const updatePassword = db.prepare('UPDATE controllers SET password = ? WHERE controller_id = ?')
+    controllers.forEach((mockController) => {
+      if (mockController.password) {
+        updatePassword.run(mockController.password, mockController.id)
+      }
+    })
+  } catch (error) {
+    // Column might already exist or table might not exist yet, ignore
+    console.warn('Password column migration:', error)
+  }
 }
 
 export function listControllers(sectorId?: string): ControllerProfile[] {
@@ -294,6 +321,7 @@ function createTables() {
     CREATE TABLE IF NOT EXISTS controllers (
       controller_id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      password TEXT,
       sector_id TEXT NOT NULL,
       sector_name TEXT NOT NULL,
       roster_role TEXT NOT NULL,
@@ -309,6 +337,9 @@ function createTables() {
       baseline_tone_stability REAL NOT NULL,
       active INTEGER NOT NULL DEFAULT 1
     );
+    
+    -- Add password column if it doesn't exist (for existing databases)
+    -- SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we'll handle it in the insert
 
     CREATE TABLE IF NOT EXISTS shift_history (
       record_id TEXT PRIMARY KEY,
@@ -393,12 +424,12 @@ function seedDatabaseIfNeeded() {
 
   const insertController = db.prepare(
     `INSERT INTO controllers (
-      controller_id, name, sector_id, sector_name, roster_role, shift_group,
+      controller_id, name, password, sector_id, sector_name, roster_role, shift_group,
       experience_years, year_of_birth, gender, health_notes, baseline_readiness,
       baseline_blink_rate, baseline_speech_rate, baseline_response_delay, baseline_tone_stability, active
     )
     VALUES (
-      @controller_id, @name, @sector_id, @sector_name, @roster_role, @shift_group,
+      @controller_id, @name, @password, @sector_id, @sector_name, @roster_role, @shift_group,
       @experience_years, @year_of_birth, @gender, @health_notes, @baseline_readiness,
       @baseline_blink_rate, @baseline_speech_rate, @baseline_response_delay, @baseline_tone_stability, @active
     )`,
@@ -442,9 +473,14 @@ function seedDatabaseIfNeeded() {
         return
       }
       const baseline = deriveBaseline(historyByController.get(row.controller_id) ?? [])
+      // Get password from mockData if available
+      const mockController = controllers.find((c) => c.id === row.controller_id)
+      const password = mockController?.password ?? `pearl-controller-${row.controller_id.split('_').pop() ?? 'default'}`
+      
       insertController.run({
         controller_id: row.controller_id,
         name: row.name,
+        password: password,
         sector_id: row.sector_id,
         sector_name: row.sector_name,
         roster_role: normalizeRosterRole(row.roster_role),
@@ -551,6 +587,9 @@ function mapControllerRecord(record: ControllerRecord): ControllerProfile {
       responseDelay: record.baseline_response_delay,
       toneStability: record.baseline_tone_stability,
     },
+  }
+  if (record.password) {
+    profile.password = record.password
   }
   if (record.health_notes && record.health_notes.trim().length > 0) {
     profile.healthNotes = record.health_notes
