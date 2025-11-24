@@ -2,20 +2,6 @@ from collections import deque
 
 class PhysioScore:
     def __init__(self, frame_rate=30):
-        # self.frame_rate = frame_rate
-        # # self.eye_states = deque(maxlen=180 * frame_rate) 
-        # # self.yawn_states = deque(maxlen=180 * frame_rate)
-        # # self.droopy_eyelids_states = deque(maxlen=180 * frame_rate)
-        # # self.droopy_face_states = deque(maxlen=180 * frame_rate)
-
-        # test_window = 300  # 10 seconds for testing
-        # self.eye_states = deque(maxlen=test_window) 
-        # self.yawn_states = deque(maxlen=test_window)
-        # self.droopy_eyelids_states = deque(maxlen=test_window)
-        # self.droopy_face_states = deque(maxlen=test_window)
-        # self.consecutive_eye_closed = 0
-        # self.consecutive_droopy_face = 0
-
         self.frame_rate = frame_rate
         # 30-second window for demo (instead of 3 minutes)
         window_seconds = 30

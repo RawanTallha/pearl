@@ -49,21 +49,35 @@ def live_monitoring():
     physio = PhysioScore()
     fatigue_calc = FatigueCalculator()
     
-    # Matplotlib setup
+    # Matplotlib setup with better layout
     plt.ion()
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
     
+    # Camera feed
     img_display = ax1.imshow(np.zeros((480, 640, 3), dtype=np.uint8))
     ax1.axis('off')
-    ax1.set_title('Live Camera Feed')
+    ax1.set_title('Live Camera Feed', fontsize=14, weight='bold')
     
+    # Fatigue analysis panel - CLEAN LAYOUT
     ax2.axis('off')
-    ax2.set_title('Fatigue Analysis', fontsize=16, weight='bold')
+    ax2.set_title('Fatigue Analysis', fontsize=16, weight='bold', pad=20)
     
-    metrics_text = ax2.text(0.1, 0.9, "", transform=ax2.transAxes, fontsize=12, 
-                           verticalalignment='top', fontfamily='monospace')
-    alert_text = ax2.text(0.5, 0.5, "", transform=ax2.transAxes, fontsize=16, 
-                         weight='bold', ha='center', color='green')
+    # Create separate text elements for different sections
+    status_text = ax2.text(0.05, 0.85, "", transform=ax2.transAxes, fontsize=14, 
+                          verticalalignment='top', fontfamily='monospace', weight='bold')
+    
+    vision_text = ax2.text(0.05, 0.65, "", transform=ax2.transAxes, fontsize=10,
+                          verticalalignment='top', fontfamily='monospace')
+    
+    other_text = ax2.text(0.05, 0.35, "", transform=ax2.transAxes, fontsize=10,
+                         verticalalignment='top', fontfamily='monospace')
+    
+    frame_text = ax2.text(0.05, 0.15, "", transform=ax2.transAxes, fontsize=9,
+                         verticalalignment='top', fontfamily='monospace', style='italic')
+    
+    # Alert message (centered and prominent)
+    alert_text = ax2.text(0.5, 0.92, "", transform=ax2.transAxes, fontsize=13, 
+                         weight='bold', ha='center', va='top', wrap=True)
     
     try:
         frame_count = 0
@@ -84,66 +98,53 @@ def live_monitoring():
             physio_scores = physio.get_physio_scores()
             
             # Calculate fatigue level
-            # level, score, alert_msg = fatigue_calc.calculate_fatigue_level(physio_scores)
             level, score, alert_msg = fatigue_calc.calculate_fatigue_level(physio_scores, frame_count)
 
-            
             # Update display
             rgb_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
             img_display.set_data(rgb_frame)
             
-            # Update metrics text
-            # In the metrics display, show ALL factors:
-#             metrics_str = f"""
-# FATIGUE LEVEL: {level}
-# SCORE: {score}/100
-
-# --- PHYSIOLOGICAL FACTORS ---
-# PERCLOS: {physio_scores['perclos']:.3f}
-# FOM: {physio_scores['fom']:.3f}
-# Eye Closure: {physio_scores['continuous_closure_sec']:.1f}s
-# Droopy Eyelids: {physio_scores['droopy_eyelids_frequency']:.3f}
-# Droopy Face: {physio_scores['continuous_droopy_face_sec']:.1f}s
-
-# Frame: {frame_count}
-#             """
-
-# In the metrics display, show ALL factors:
-            metrics_str = f"""
-FATIGUE LEVEL: {level}
-SCORE: {score}/100
-
---- ALL FACTORS ---
-VISION:
-  PERCLOS: {physio_scores['perclos']:.3f}
-  FOM: {physio_scores['fom']:.3f}
-  Droopy Eyelids: {physio_scores['droopy_eyelids_frequency']:.3f}
-
-OTHER FACTORS:
-  Reaction Time: 0.85 (Good)
-  Voice Patterns: 0.90 (Clear) 
-  History: 0.80 (Good)
-  Shift: 2.5 hours
-  Sleep: 6.5 hours
-
-Frame: {frame_count}
-"""
-
-            metrics_text.set_text(metrics_str)
+            # SPLIT TEXT INTO MULTIPLE SECTIONS - NO OVERLAP
+            status_str = f"FATIGUE LEVEL: {level}\nSCORE: {score}/100"
+            status_text.set_text(status_str)
             
-            # Update alert with color coding
+            vision_str = f"""VISION FACTORS:
+PERCLOS: {physio_scores['perclos']:.3f}
+FOM: {physio_scores['fom']:.3f}
+Droopy Eyelids: {physio_scores['droopy_eyelids_frequency']:.3f}
+Eye Closure: {physio_scores['continuous_closure_sec']:.1f}s"""
+            vision_text.set_text(vision_str)
+            
+            other_str = f"""OTHER FACTORS:
+Reaction Time: 0.85
+Voice Patterns: 0.90
+History: 0.80
+Sleep: 6.5 hours
+Alerts: {fatigue_calc.previous_alerts_count}"""
+            other_text.set_text(other_str)
+            
+            frame_str = f"Frame: {frame_count}"
+            frame_text.set_text(frame_str)
+            
+            # Alert message (shorter to prevent overlap)
+            short_alert = alert_msg
+            if len(alert_msg) > 50:
+                short_alert = alert_msg[:47] + "..."
+            alert_text.set_text(short_alert)
+            
+            # Update alert colors
             if level == "HIGH FATIGUE":
-                alert_text.set_text("🔴 " + alert_msg)
                 alert_text.set_color('red')
                 ax2.set_facecolor('#FFE6E6')
+                status_text.set_color('red')
             elif level == "EARLY FATIGUE":
-                alert_text.set_text("🟠 " + alert_msg)
                 alert_text.set_color('orange')
                 ax2.set_facecolor('#FFF4E6')
+                status_text.set_color('orange')
             else:
-                alert_text.set_text("🟢 " + alert_msg)
                 alert_text.set_color('green')
                 ax2.set_facecolor('#E6FFE6')
+                status_text.set_color('green')
             
             fig.canvas.draw()
             fig.canvas.flush_events()
