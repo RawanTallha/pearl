@@ -1,3 +1,4 @@
+import time
 class FatigueCalculator:
     def __init__(self):
         self.current_level = "NORMAL"
